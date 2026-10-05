@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Allround Cleaning Service
 
-## Getting Started
+Bedrijfsportaal voor Allround Cleaning Service, gebouwd met Next.js 16, React 19,
+Supabase en PostgreSQL.
 
-First, run the development server:
+## Lokaal starten
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Het dashboard is beschikbaar
+op `/dashboard`; voorraadbeheer staat op `/erp/voorraad`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Voorraadbeheer instellen
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Voorraadmutaties worden opgeslagen in PostgreSQL via Supabase. De voorraad-API
+vereist een ingelogde gebruiker; er is geen publieke registratie.
 
-## Learn More
+1. Maak een Supabase-project aan.
+2. Kopieer `.env.example` naar `.env.local` en vul de project-URL en
+   publishable key in vanuit de Supabase projectinstellingen:
 
-To learn more about Next.js, take a look at the following resources:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   Stel deze variabelen ook in vóór een productiebuild.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Voer [`supabase/migrations/20261005160000_inventory.sql`](./supabase/migrations/20261005160000_inventory.sql)
+   uit in de SQL Editor van het Supabase-project.
+4. Schakel openbare registratie uit en nodig gebruikers alleen uit via
+   Supabase Authentication.
+5. Voeg iedere bevoegde gebruiker expliciet toe aan `inventory_members`. Voer
+   bijvoorbeeld in de SQL Editor uit, met het e-mailadres van een reeds
+   aangemaakte Supabase-gebruiker:
 
-## Deploy on Vercel
+   ```sql
+   insert into public.inventory_members (user_id)
+   select id from auth.users where email = 'beheerder@allround-cleaning.nl'
+   on conflict (user_id) do nothing;
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+6. Herstart de Next.js-server en open `/erp/voorraad`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+De migratie maakt de artikelcatalogus en mutatiegeschiedenis aan, zet
+Row-Level Security aan en beperkt toegang tot expliciet toegelaten
+magazijngebruikers. Voorraadwijzigingen worden als één atomische
+databasemutatie opgeslagen; een afboeking kan de voorraad niet onder nul
+brengen. De realtime-publicatie houdt open magazijnschermen synchroon; als die
+verbinding wegvalt, wordt de voorraad periodiek opnieuw opgehaald. Alle
+toegelaten gebruikers werken in deze eerste versie in dezelfde bedrijfsvoorraad.
+
+## Magazijnworkflow
+
+- Scan een barcode met een USB-/handscanner (die tekst invoert en Enter verstuurt)
+  of open de camera-scanner op een apparaat met cameratoegang.
+- Voeg onbekende artikelen toe aan de catalogus met eenheid, barcode,
+  magazijnlocatie en optionele minimumvoorraad.
+- Boek ontvangen goederen in of verbruikte/uitgegeven goederen af.
+- Bekijk de actuele voorraad en de laatste 30 mutaties.
+
+Voor cameratoegang is HTTPS nodig, behalve op `localhost`. Als een artikel nog
+geen barcode heeft, kun je het ook selecteren vanuit de catalogus.
