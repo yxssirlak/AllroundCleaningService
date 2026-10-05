@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import BusinessSidebar from "@/components/business-sidebar";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { Database, InventoryMovementType } from "@/lib/supabase/database.types";
 
@@ -168,6 +168,7 @@ function CameraScanner({
 export default function InventoryWorkspace({ email }: { email: string }) {
   const router = useRouter();
   const movementPanelRef = useRef<HTMLElement>(null);
+  const movementChoiceRef = useRef<HTMLFieldSetElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -177,6 +178,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [recognizedProductId, setRecognizedProductId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [movementType, setMovementType] = useState<InventoryMovementType>("in");
   const [quantity, setQuantity] = useState("1");
@@ -190,6 +192,17 @@ export default function InventoryWorkspace({ email }: { email: string }) {
   const [productUnit, setProductUnit] = useState("stuk");
   const [productLocation, setProductLocation] = useState("");
   const [minimumQuantity, setMinimumQuantity] = useState("0");
+
+  useEffect(() => {
+    if (!error && !notice) return;
+
+    const timeout = window.setTimeout(() => {
+      setError("");
+      setNotice("");
+    }, 6000);
+
+    return () => window.clearTimeout(timeout);
+  }, [error, notice]);
 
   const loadInventory = useCallback(async () => {
     try {
@@ -305,15 +318,17 @@ export default function InventoryWorkspace({ email }: { email: string }) {
     setBarcode(scannedCode);
     setNotice("");
     setError("");
+    setSelectedId(product?.id ?? "");
 
     if (product) {
-      setSelectedId(product.id);
+      setRecognizedProductId(product.id);
       setCreateOpen(false);
       setNotice(`${product.name} geselecteerd. Kies de mutatie en bevestig het aantal.`);
       movementPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
+    setRecognizedProductId(null);
     setDraftBarcode(scannedCode);
     setCreateOpen(true);
     setNotice("Deze barcode is nog niet bekend. Voeg het artikel eerst toe aan de administratie.");
@@ -380,6 +395,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
       });
       const payload = await readApiResponse<{ product: Product }>(response);
       setSelectedId(payload.product.id);
+      setRecognizedProductId(payload.product.id);
       setBarcode(payload.product.barcode ?? "");
       setProductName("");
       setProductSku("");
@@ -410,30 +426,17 @@ export default function InventoryWorkspace({ email }: { email: string }) {
     }
   }
 
+  function focusMovementOptions() {
+    const movementChoice = movementChoiceRef.current;
+    if (!movementChoice) return;
+
+    movementChoice.scrollIntoView({ behavior: "smooth", block: "center" });
+    movementChoice.querySelector<HTMLInputElement>('input[type="radio"]')?.focus({ preventScroll: true });
+  }
+
   return (
     <div className="portal inventory-portal">
-      <aside className="sidebar">
-        <Link className="brand" href="/dashboard" aria-label="Allround dashboard">
-          <Image src="/logo.png" alt="Allround Cleaning Service" width={1024} height={368} priority />
-        </Link>
-        <div className="sidebar-label">WERKRUIMTE</div>
-        <nav className="main-nav" aria-label="Hoofdnavigatie">
-          <Link className="nav-item" href="/dashboard"><InventoryIcon name="grid" /><span>Dashboard</span></Link>
-          <Link className="nav-item active" href="/erp/voorraad" aria-current="page"><InventoryIcon name="box" /><span>ERP & Voorraad</span></Link>
-          <a className="nav-item nav-coming-soon" href="/dashboard#modules"><InventoryIcon name="users" /><span>Klanten & CRM</span><span className="coming-soon">In opbouw</span></a>
-          <a className="nav-item nav-coming-soon" href="/dashboard#modules"><InventoryIcon name="calendar" /><span>Planning</span><span className="coming-soon">In opbouw</span></a>
-          <a className="nav-item nav-coming-soon" href="/dashboard#modules"><InventoryIcon name="briefcase" /><span>Medewerkers</span><span className="coming-soon">In opbouw</span></a>
-          <a className="nav-item nav-coming-soon" href="/dashboard#modules"><InventoryIcon name="receipt" /><span>Facturen</span><span className="coming-soon">In opbouw</span></a>
-          <a className="nav-item nav-coming-soon" href="/dashboard#modules"><InventoryIcon name="sparkles" /><span>Automatiseringen</span><span className="coming-soon">In opbouw</span></a>
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-label">BEHEER</div>
-          <div className="account-card">
-            <div className="avatar avatar-admin"><InventoryIcon name="users" size={17} /></div>
-            <div className="account-copy"><strong>Ingelogd</strong><span title={email}>{email}</span></div>
-          </div>
-        </div>
-      </aside>
+      <BusinessSidebar currentPage="inventory" accountLabel="Ingelogd" accountDetail={email} />
 
       <main className="main-area">
         <header className="topbar">
@@ -443,10 +446,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
             <span className="breadcrumb-divider">/</span><strong>Voorraad</strong>
           </div>
           <div className="topbar-right inventory-topbar">
-            <span className="portal-tag">
-              <span className={liveConnected ? "status-dot" : "build-dot"} />
-              {liveConnected ? "Live voorraad" : "Voorraadbeheer"}
-            </span>
+
             <button className="signout-button" type="button" onClick={handleSignOut} aria-label="Uitloggen">
               <InventoryIcon name="logout" size={17} /><span>Uitloggen</span>
             </button>
@@ -489,9 +489,6 @@ export default function InventoryWorkspace({ email }: { email: string }) {
             </article>
           </section>
 
-          {error ? <div className="inventory-alert inventory-alert-error" role="alert"><InventoryIcon name="warning" size={18} />{error}</div> : null}
-          {notice ? <div className="inventory-alert inventory-alert-success" role="status"><InventoryIcon name="check" size={18} />{notice}</div> : null}
-
           <section className="stock-workflow">
             <article className="panel scan-panel" ref={movementPanelRef}>
               <div className="inventory-section-heading">
@@ -512,7 +509,10 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                     ref={barcodeInputRef}
                     autoComplete="off"
                     value={barcode}
-                    onChange={(event) => setBarcode(event.target.value)}
+                    onChange={(event) => {
+                      setBarcode(event.target.value);
+                      setRecognizedProductId(null);
+                    }}
                     placeholder="Scan barcode of artikelcode…"
                   />
                   <button className="barcode-submit" type="submit">Zoeken</button>
@@ -531,7 +531,10 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                 id="select-product"
                 className="inventory-select"
                 value={selectedId}
-                onChange={(event) => setSelectedId(event.target.value)}
+                onChange={(event) => {
+                  setSelectedId(event.target.value);
+                  setRecognizedProductId(null);
+                }}
               >
                 <option value="">Kies een artikel…</option>
                 {products.map((product) => (
@@ -576,6 +579,20 @@ export default function InventoryWorkspace({ email }: { email: string }) {
               ) : null}
             </article>
 
+            {selectedProduct && barcode.trim() !== "" && recognizedProductId === selectedProduct.id ? (
+              <div className="recognized-workflow-connector" role="status">
+                <button
+                  className="recognized-product-next"
+                  type="button"
+                  aria-label="Artikel herkend. Ga naar voorraad bijwerken"
+                  onClick={focusMovementOptions}
+                >
+                  <InventoryIcon name="arrow" size={19} />
+                </button>
+                <span className="visually-hidden">Artikel herkend. Je kunt nu voorraad bijwerken.</span>
+              </div>
+            ) : null}
+
             <article className="panel movement-panel">
               <div className="inventory-section-heading">
                 <div>
@@ -586,7 +603,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                 <span className="inventory-heading-icon movement-heading-icon"><InventoryIcon name="receipt" size={21} /></span>
               </div>
               <form className="movement-form" onSubmit={handleMovementSubmit}>
-                <fieldset className="movement-choice">
+                <fieldset className="movement-choice" ref={movementChoiceRef}>
                   <legend>Wat wil je registreren?</legend>
                   <label className={movementType === "in" ? "movement-option selected movement-in" : "movement-option"}>
                     <input type="radio" name="movementType" value="in" checked={movementType === "in"} onChange={() => setMovementType("in")} />
@@ -672,6 +689,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                         <td><span className={`product-status ${isLow ? "product-status-low" : "product-status-ok"}`}><span />{isLow ? "Bijbestellen" : "Op voorraad"}</span></td>
                         <td><button className="table-action" type="button" onClick={() => {
                           setSelectedId(product.id);
+                          setRecognizedProductId(null);
                           setMovementType("in");
                           movementPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                         }}>Mutatie <InventoryIcon name="arrow" size={14} /></button></td>
@@ -729,6 +747,28 @@ export default function InventoryWorkspace({ email }: { email: string }) {
             lookupBarcode(value);
           }}
         />
+      ) : null}
+      {error || notice ? (
+        <div className="inventory-toast-stack" aria-live="polite">
+          {error ? (
+            <div className="inventory-alert inventory-alert-error" role="alert">
+              <InventoryIcon name="warning" size={18} />
+              <span>{error}</span>
+              <button className="inventory-toast-close" type="button" aria-label="Foutmelding sluiten" onClick={() => setError("")}>
+                <InventoryIcon name="close" size={16} />
+              </button>
+            </div>
+          ) : null}
+          {notice ? (
+            <div className="inventory-alert inventory-alert-success" role="status">
+              <InventoryIcon name="check" size={18} />
+              <span>{notice}</span>
+              <button className="inventory-toast-close" type="button" aria-label="Melding sluiten" onClick={() => setNotice("")}>
+                <InventoryIcon name="close" size={16} />
+              </button>
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import BusinessSidebar from "@/components/business-sidebar";
 
 type IconName =
   | "grid"
@@ -130,75 +130,15 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   );
 }
 
-const navigation: { label: string; icon: IconName; current?: boolean; href?: string }[] = [
-  { label: "Dashboard", icon: "grid", current: true },
-  { label: "ERP & Voorraad", icon: "box", href: "/erp/voorraad" },
-  { label: "Klanten & CRM", icon: "users" },
-  { label: "Planning", icon: "calendar" },
-  { label: "Medewerkers", icon: "briefcase" },
-  { label: "Facturen", icon: "receipt" },
-  { label: "Automatiseringen", icon: "sparkles" },
-];
-
 export default function BusinessDashboard() {
   return (
     <div className="portal">
-      <aside className="sidebar">
-        <Link className="brand" href="/dashboard" aria-label="Allround dashboard">
-          <Image
-            src="/logo.png"
-            alt="Allround Cleaning Service"
-            width={1024}
-            height={368}
-            priority
-          />
-        </Link>
-
-        <div className="sidebar-label">WERKRUIMTE</div>
-        <nav className="main-nav" aria-label="Hoofdnavigatie">
-          {navigation.map((item) =>
-            item.current ? (
-              <Link
-                className="nav-item active"
-                href="/dashboard"
-                key={item.label}
-                aria-current="page"
-              >
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </Link>
-            ) : item.href ? (
-              <Link className="nav-item" href={item.href} key={item.label}>
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </Link>
-            ) : (
-              <a className="nav-item nav-coming-soon" href="#modules" key={item.label}>
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-                <span className="coming-soon">In opbouw</span>
-              </a>
-            ),
-          )}
-        </nav>
-
-        <div className="sidebar-bottom">
-          <div className="sidebar-label">BEHEER</div>
-          <a className="nav-item nav-coming-soon" href="#modules">
-            <Icon name="settings" />
-            <span>Instellingen</span>
-            <span className="coming-soon">In opbouw</span>
-          </a>
-          <div className="account-card">
-            <div className="avatar avatar-admin"><Icon name="users" size={18} /></div>
-            <div className="account-copy">
-              <strong>Account</strong>
-              <span>Allround Cleaning</span>
-            </div>
-            <Icon name="dots" size={18} />
-          </div>
-        </div>
-      </aside>
+      <BusinessSidebar
+        currentPage="dashboard"
+        accountLabel="Account"
+        accountDetail="Allround Cleaning"
+        showSettings
+      />
 
       <main className="main-area">
         <header className="topbar">
