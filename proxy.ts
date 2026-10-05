@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig } from "@/lib/supabase/config";
+import { REMEMBER_SESSION_MAX_AGE, REMEMBER_SESSION_COOKIE } from "@/lib/supabase/session-preference";
 import type { Database } from "@/lib/supabase/database.types";
 
 export async function proxy(request: NextRequest) {
@@ -11,11 +12,13 @@ export async function proxy(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request });
+  const rememberSession = request.cookies.get(REMEMBER_SESSION_COOKIE)?.value === "1";
 
   const supabase = createServerClient<Database>(
     config.url,
     config.publishableKey,
     {
+      cookieOptions: rememberSession ? { maxAge: REMEMBER_SESSION_MAX_AGE } : {},
       cookies: {
         getAll() {
           return request.cookies.getAll();

@@ -28,7 +28,7 @@ export interface Database {
         Insert: {
           id?: string;
           name: string;
-          sku?: string | null;
+          sku: string;
           barcode?: string | null;
           unit?: string;
           location?: string | null;
@@ -40,7 +40,7 @@ export interface Database {
         };
         Update: {
           name?: string;
-          sku?: string | null;
+          sku?: string;
           barcode?: string | null;
           unit?: string;
           location?: string | null;

@@ -29,10 +29,15 @@ vereist een ingelogde gebruiker; er is geen publieke registratie.
 
    Stel deze variabelen ook in vóór een productiebuild.
 
-3. Voer [`supabase/migrations/20261005160000_inventory.sql`](./supabase/migrations/20261005160000_inventory.sql)
-   uit in de SQL Editor van het Supabase-project.
+3. Voer de SQL-migraties in volgorde uit in de SQL Editor van het Supabase-project:
+   [`20261005160000_inventory.sql`](./supabase/migrations/20261005160000_inventory.sql)
+   en daarna
+   [`20261005230500_inventory_sku_required.sql`](./supabase/migrations/20261005230500_inventory_sku_required.sql).
 4. Schakel openbare registratie uit en nodig gebruikers alleen uit via
    Supabase Authentication.
+   Voeg bij **Authentication → URL Configuration → Redirect URLs** ook
+   `http://localhost:3000/login/wachtwoord-wijzigen` toe voor lokaal testen en
+   de overeenkomstige productie-URL voor wachtwoordherstel.
 5. Voeg iedere bevoegde gebruiker expliciet toe aan `inventory_members`. Voer
    bijvoorbeeld in de SQL Editor uit, met het e-mailadres van een reeds
    aangemaakte Supabase-gebruiker:
@@ -58,7 +63,9 @@ toegelaten gebruikers werken in deze eerste versie in dezelfde bedrijfsvoorraad.
 - Scan een barcode met een USB-/handscanner (die tekst invoert en Enter verstuurt)
   of open de camera-scanner op een apparaat met cameratoegang.
 - Voeg onbekende artikelen toe aan de catalogus met eenheid, barcode,
-  magazijnlocatie en optionele minimumvoorraad.
+  verplichte artikelcode, magazijnlocatie en optionele minimumvoorraad. De
+  migratie kent bestaande artikelen zonder artikelcode automatisch een unieke
+  code toe.
 - Boek ontvangen goederen in of verbruikte/uitgegeven goederen af.
 - Bekijk de actuele voorraad en de laatste 30 mutaties.
 

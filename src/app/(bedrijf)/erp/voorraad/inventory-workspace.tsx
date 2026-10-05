@@ -2,14 +2,24 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import BusinessSidebar from "@/components/business-sidebar";
+import StyledSelect from "@/components/styled-select";
+import { hasInventoryPrecision } from "@/lib/inventory/validation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { clearRememberSessionPreference } from "@/lib/supabase/session-preference";
 import type { Database, InventoryMovementType } from "@/lib/supabase/database.types";
 
 type Product = Database["public"]["Tables"]["inventory_products"]["Row"];
 type Movement = Database["public"]["Tables"]["inventory_movements"]["Row"] & {
   product: Pick<Product, "id" | "name" | "sku" | "unit"> | null;
+};
+type MovementConfirmation = {
+  productName: string;
+  movementType: InventoryMovementType;
+  quantity: number;
+  unit: string;
+  stockAfter: number;
 };
 type ApiError = { error?: string };
 
@@ -71,14 +81,21 @@ function InventoryIcon({
 function CameraScanner({
   onClose,
   onBarcode,
+  onError,
 }: {
   onClose: () => void;
   onBarcode: (barcode: string) => void;
+  onError: (message: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState("");
-  const [recognized, setRecognized] = useState("");
+  const onBarcodeRef = useRef(onBarcode);
+  const onErrorRef = useRef(onError);
   const [starting, setStarting] = useState(true);
+
+  useEffect(() => {
+    onBarcodeRef.current = onBarcode;
+    onErrorRef.current = onError;
+  }, [onBarcode, onError]);
 
   useEffect(() => {
     let stopped = false;
@@ -88,7 +105,7 @@ function CameraScanner({
 
     if (!video || !navigator.mediaDevices?.getUserMedia) {
       setStarting(false);
-      setError("Deze browser biedt geen cameratoegang. Gebruik de handscanner of voer de barcode in.");
+      onErrorRef.current("Deze browser biedt geen cameratoegang. Gebruik de handscanner of voer de barcode in.");
       return;
     }
     const preview = video;
@@ -104,8 +121,8 @@ function CameraScanner({
           (result) => {
             if (result && !barcodeFound) {
               barcodeFound = true;
-              setRecognized(result.getText());
               stopCamera?.();
+              onBarcodeRef.current(result.getText());
             }
           },
         );
@@ -118,7 +135,7 @@ function CameraScanner({
         if (stopped) return;
         console.error("Camerascan starten mislukt:", caught);
         setStarting(false);
-        setError("Camera niet beschikbaar. Controleer de cameratoestemming of gebruik een handscanner.");
+        onErrorRef.current("Camera niet beschikbaar. Controleer de cameratoestemming of gebruik een handscanner.");
       }
     }
 
@@ -147,18 +164,10 @@ function CameraScanner({
           <video ref={videoRef} muted autoPlay playsInline />
           <span className="camera-target" />
           {starting ? <span className="camera-loading">Camera wordt gestart…</span> : null}
-          {error ? <span className="camera-error">{error}</span> : null}
         </div>
-        {recognized ? (
-          <div className="recognized-code"><InventoryIcon name="check" size={17} /> Barcode herkend: <strong>{recognized}</strong></div>
-        ) : (
-          <p className="scanner-help">Houd de barcode stil in het kader. De camera heeft toestemming nodig.</p>
-        )}
+        <p className="scanner-help">Houd de barcode stil in het kader. Bij herkenning ga je direct verder.</p>
         <div className="scanner-actions">
           <button className="secondary-button" type="button" onClick={onClose}>Annuleren</button>
-          <button className="primary-button" type="button" disabled={!recognized} onClick={() => onBarcode(recognized)}>
-            Artikel zoeken
-          </button>
         </div>
       </section>
     </div>
@@ -166,6 +175,7 @@ function CameraScanner({
 }
 
 export default function InventoryWorkspace({ email }: { email: string }) {
+  const pathname = usePathname();
   const router = useRouter();
   const movementPanelRef = useRef<HTMLElement>(null);
   const movementChoiceRef = useRef<HTMLFieldSetElement>(null);
@@ -178,20 +188,30 @@ export default function InventoryWorkspace({ email }: { email: string }) {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [barcode, setBarcode] = useState("");
-  const [recognizedProductId, setRecognizedProductId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
+  const [barcodeMatches, setBarcodeMatches] = useState<Product[]>([]);
   const [movementType, setMovementType] = useState<InventoryMovementType>("in");
   const [quantity, setQuantity] = useState("1");
   const [note, setNote] = useState("");
+  const [movementConfirmation, setMovementConfirmation] = useState<MovementConfirmation | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [liveConnected, setLiveConnected] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [draftBarcode, setDraftBarcode] = useState("");
-  const [productName, setProductName] = useState("");
-  const [productSku, setProductSku] = useState("");
-  const [productUnit, setProductUnit] = useState("stuk");
-  const [productLocation, setProductLocation] = useState("");
-  const [minimumQuantity, setMinimumQuantity] = useState("0");
+
+  useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.get("added") !== "1") return;
+
+    currentUrl.searchParams.delete("added");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+    );
+    const noticeTimer = window.setTimeout(() => {
+      setNotice("Het artikel is toegevoegd aan de voorraadcatalogus.");
+    }, 0);
+
+    return () => window.clearTimeout(noticeTimer);
+  }, [pathname]);
 
   useEffect(() => {
     if (!error && !notice) return;
@@ -203,6 +223,12 @@ export default function InventoryWorkspace({ email }: { email: string }) {
 
     return () => window.clearTimeout(timeout);
   }, [error, notice]);
+
+  useEffect(() => {
+    if (!movementConfirmation) return;
+    const timeout = window.setTimeout(() => setMovementConfirmation(null), 5500);
+    return () => window.clearTimeout(timeout);
+  }, [movementConfirmation]);
 
   const loadInventory = useCallback(async () => {
     try {
@@ -219,7 +245,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setError, setLoading, setMovements, setProducts]);
 
   useEffect(() => {
     let active = true;
@@ -270,8 +296,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
       .channel("inventory-live-updates")
       .on("postgres_changes", { event: "*", schema: "public", table: "inventory_products" }, refreshSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "inventory_movements" }, refreshSoon)
-      .subscribe((status, error) => {
-        setLiveConnected(status === "SUBSCRIBED");
+      .subscribe((_status, error) => {
         if (error) {
           console.error("Live voorraadupdates zijn niet beschikbaar:", error.message);
         }
@@ -307,33 +332,84 @@ export default function InventoryWorkspace({ email }: { email: string }) {
     ? selectedProduct.stock_quantity
       + (movementType === "in" ? Number(quantity || 0) : -Number(quantity || 0))
     : null;
+  const quantityValue = quantity.trim() === "" ? Number.NaN : Number(quantity);
+  const quantityIsValid =
+    Number.isFinite(quantityValue)
+    && quantityValue > 0
+    && quantityValue <= 1000000
+    && hasInventoryPrecision(quantityValue);
+  const movementCanSubmit =
+    Boolean(selectedProduct)
+    && !loading
+    && !saving
+    && quantityIsValid
+    && note.length <= 250
+    && (movementType === "in" || (selectedProduct !== null && quantityValue <= selectedProduct.stock_quantity));
+
+  const selectProduct = useCallback((product: Product) => {
+    setMovementConfirmation(null);
+    setBarcode(product.barcode ?? product.sku ?? "");
+    setSelectedId(product.id);
+    setBarcodeMatches([]);
+    setError("");
+    setNotice("");
+    window.requestAnimationFrame(() => {
+      movementPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.requestAnimationFrame(() => {
+        movementChoiceRef.current?.querySelector<HTMLInputElement>('input[type="radio"]')?.focus({ preventScroll: true });
+      });
+    });
+  }, [
+    setBarcode,
+    setBarcodeMatches,
+    setError,
+    setMovementConfirmation,
+    setNotice,
+    setSelectedId,
+  ]);
 
   const lookupBarcode = useCallback((value: string) => {
     const scannedCode = value.trim();
     if (!scannedCode) return;
-    const product = products.find(
+    const matches = products.filter(
       (item) => item.barcode === scannedCode || item.sku === scannedCode,
     );
 
     setBarcode(scannedCode);
     setNotice("");
     setError("");
-    setSelectedId(product?.id ?? "");
+    setMovementConfirmation(null);
 
-    if (product) {
-      setRecognizedProductId(product.id);
-      setCreateOpen(false);
-      setNotice(`${product.name} geselecteerd. Kies de mutatie en bevestig het aantal.`);
-      movementPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (matches.length === 1) {
+      selectProduct(matches[0]);
       return;
     }
 
-    setRecognizedProductId(null);
-    setDraftBarcode(scannedCode);
-    setCreateOpen(true);
-    setNotice("Deze barcode is nog niet bekend. Voeg het artikel eerst toe aan de administratie.");
-    movementPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [products]);
+    if (matches.length > 1) {
+      setSelectedId("");
+      setBarcodeMatches(matches);
+      setNotice("Meerdere artikelen passen bij deze code. Kies het juiste artikel om verder te gaan.");
+      return;
+    }
+
+    setSelectedId("");
+    setBarcodeMatches([]);
+    const params = new URLSearchParams({
+      barcode: scannedCode,
+      returnTo: "/erp/voorraad",
+    });
+    router.push(`/erp/voorraad/nieuw?${params.toString()}`);
+  }, [
+    products,
+    router,
+    selectProduct,
+    setBarcode,
+    setBarcodeMatches,
+    setError,
+    setMovementConfirmation,
+    setNotice,
+    setSelectedId,
+  ]);
 
   function handleBarcodeSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -342,8 +418,14 @@ export default function InventoryWorkspace({ email }: { email: string }) {
 
   async function handleMovementSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedProduct) {
-      setError("Scan of selecteer eerst een artikel.");
+    if (!movementCanSubmit || !selectedProduct) {
+      setError(
+        !selectedProduct
+          ? "Scan of selecteer eerst een artikel."
+          : movementType === "out" && projectedQuantity !== null && projectedQuantity < 0
+            ? "Het af te boeken aantal is groter dan de beschikbare voorraad."
+            : "Controleer het aantal en probeer het opnieuw.",
+      );
       return;
     }
 
@@ -352,62 +434,40 @@ export default function InventoryWorkspace({ email }: { email: string }) {
     setNotice("");
 
     try {
+      const submittedType = movementType;
+      const submittedQuantity = Number(quantity);
+      const submittedProduct = selectedProduct;
       const response = await fetch("/api/inventory/movements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productId: selectedProduct.id,
-          movementType,
-          quantity: Number(quantity),
+          productId: submittedProduct.id,
+          movementType: submittedType,
+          quantity: submittedQuantity,
           note,
         }),
       });
-      await readApiResponse<{ movement: Movement }>(response);
-      setNotice(movementType === "in" ? "Goederen ontvangen. De voorraad is bijgewerkt." : "Goederen afgeboekt. De voorraad is bijgewerkt.");
+      const { movement } = await readApiResponse<{ movement: Movement }>(response);
+      setMovementConfirmation({
+        productName: submittedProduct.name,
+        movementType: submittedType,
+        quantity: submittedQuantity,
+        unit: submittedProduct.unit,
+        stockAfter: movement.stock_after,
+      });
+      setSelectedId("");
+      setBarcode("");
+      setBarcodeMatches([]);
       setQuantity("1");
       setNote("");
+      setMovementType("in");
       await loadInventory();
+      window.requestAnimationFrame(() => {
+        barcodeInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        barcodeInputRef.current?.focus({ preventScroll: true });
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "De voorraadmutatie kon niet worden opgeslagen.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleProductSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/inventory/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: productName,
-          sku: productSku,
-          barcode: draftBarcode,
-          unit: productUnit,
-          location: productLocation,
-          minimumQuantity: Number(minimumQuantity),
-        }),
-      });
-      const payload = await readApiResponse<{ product: Product }>(response);
-      setSelectedId(payload.product.id);
-      setRecognizedProductId(payload.product.id);
-      setBarcode(payload.product.barcode ?? "");
-      setProductName("");
-      setProductSku("");
-      setProductUnit("stuk");
-      setProductLocation("");
-      setMinimumQuantity("0");
-      setCreateOpen(false);
-      setNotice(`${payload.product.name} is toegevoegd. Boek de ontvangen goederen hieronder in.`);
-      await loadInventory();
-      movementPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Het artikel kon niet worden opgeslagen.");
     } finally {
       setSaving(false);
     }
@@ -418,6 +478,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
       const supabase = createSupabaseBrowserClient();
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) throw signOutError;
+      clearRememberSessionPreference();
       router.replace("/login");
       router.refresh();
     } catch (caught) {
@@ -460,37 +521,37 @@ export default function InventoryWorkspace({ email }: { email: string }) {
               <h1>Voorraad & goederen</h1>
               <p>Registreer wat binnenkomt, boek verbruik af en houd je magazijn actueel.</p>
             </div>
-            <button className="primary-button" type="button" onClick={() => {
-              setDraftBarcode("");
-              setCreateOpen((open) => !open);
-            }}>
+            <Link className="primary-button" href="/erp/voorraad/nieuw">
               <InventoryIcon name="plus" size={17} /> Nieuw artikel
-            </button>
+            </Link>
           </section>
 
           <section className="inventory-metrics" aria-label="Voorraadoverzicht">
             <article className="inventory-metric">
-              <span className="inventory-metric-icon metric-cyan"><InventoryIcon name="box" /></span>
-              <span className="inventory-metric-label">Artikelen in catalogus</span>
+              <div className="inventory-metric-heading">
+                <span className="inventory-metric-label">Artikelen in catalogus</span>
+                <span className="inventory-metric-icon metric-cyan"><InventoryIcon name="box" /></span>
+              </div>
               <strong>{loading ? "—" : products.length}</strong>
-              <span className="inventory-metric-detail">Actieve voorraadartikelen</span>
             </article>
             <article className="inventory-metric">
-              <span className="inventory-metric-icon metric-amber"><InventoryIcon name="warning" /></span>
-              <span className="inventory-metric-label">Onder minimumvoorraad</span>
-              <strong>{loading ? "—" : lowStockCount}</strong>
-              <span className="inventory-metric-detail">Artikelen met ingestelde drempel</span>
+              <div className="inventory-metric-heading">
+                <span className="inventory-metric-label">Onder minimumvoorraad</span>
+                <span className="inventory-metric-icon metric-amber"><InventoryIcon name="warning" /></span>
+              </div>
+              <strong className={lowStockCount > 0 ? "inventory-metric-alert-value" : ""}>{loading ? "—" : lowStockCount}</strong>
             </article>
             <article className="inventory-metric">
-              <span className="inventory-metric-icon metric-violet"><InventoryIcon name="scan" /></span>
-              <span className="inventory-metric-label">Artikelen met barcode</span>
+              <div className="inventory-metric-heading">
+                <span className="inventory-metric-label">Artikelen met barcode</span>
+                <span className="inventory-metric-icon metric-cyan"><InventoryIcon name="scan" /></span>
+              </div>
               <strong>{loading ? "—" : barcodeCount}</strong>
-              <span className="inventory-metric-detail">Via scanner direct terug te vinden</span>
             </article>
           </section>
 
           <section className="stock-workflow">
-            <article className="panel scan-panel" ref={movementPanelRef}>
+            <article className="panel scan-panel">
               <div className="inventory-section-heading">
                 <div>
                   <span className="inventory-step-label"><span>01</span> ARTIKEL HERKENNEN</span>
@@ -511,7 +572,6 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                     value={barcode}
                     onChange={(event) => {
                       setBarcode(event.target.value);
-                      setRecognizedProductId(null);
                     }}
                     placeholder="Scan barcode of artikelcode…"
                   />
@@ -526,74 +586,77 @@ export default function InventoryWorkspace({ email }: { email: string }) {
               </div>
 
               <div className="inventory-or"><span>OF SELECTEER HANDMATIG</span></div>
-              <label className="field-label" htmlFor="select-product">Artikel uit catalogus</label>
-              <select
-                id="select-product"
-                className="inventory-select"
+              <span className="field-label">Artikel uit catalogus</span>
+              <StyledSelect
+                ariaLabel="Artikel uit catalogus"
                 value={selectedId}
-                onChange={(event) => {
-                  setSelectedId(event.target.value);
-                  setRecognizedProductId(null);
+                onChange={(id) => {
+                  const product = products.find((item) => item.id === id);
+                  if (product) {
+                    selectProduct(product);
+                  } else {
+                    setSelectedId("");
+                    setBarcodeMatches([]);
+                  }
                 }}
-              >
-                <option value="">Kies een artikel…</option>
-                {products.map((product) => (
-                  <option value={product.id} key={product.id}>
-                    {product.name}{product.sku ? ` · ${product.sku}` : ""} · voorraad {product.stock_quantity} {product.unit}
-                  </option>
-                ))}
-              </select>
+                placeholder="Kies een artikel…"
+                options={[
+                  { value: "", label: "Kies een artikel…" },
+                  ...products.map((product) => ({
+                    value: product.id,
+                    label: `${product.name}${product.sku ? ` · ${product.sku}` : ""}`,
+                    description: `Voorraad: ${product.stock_quantity} ${product.unit}`,
+                  })),
+                ]}
+              />
 
-              {selectedProduct ? (
-                <div className="selected-product">
-                  <span className="selected-product-icon"><InventoryIcon name="box" size={19} /></span>
-                  <span className="selected-product-copy">
-                    <strong>{selectedProduct.name}</strong>
-                    <span>{selectedProduct.sku ? `Artikelcode ${selectedProduct.sku}` : "Geen artikelcode"}
-                      {selectedProduct.location ? ` · ${selectedProduct.location}` : ""}
-                    </span>
-                  </span>
-                  <span className={`stock-pill ${selectedProduct.stock_quantity <= selectedProduct.minimum_quantity && selectedProduct.minimum_quantity > 0 ? "stock-pill-low" : ""}`}>
-                    {selectedProduct.stock_quantity} {selectedProduct.unit}
-                  </span>
+              {barcodeMatches.length > 1 ? (
+                <div className="barcode-match-list" role="group" aria-label="Kies het juiste artikel">
+                  <strong>Meerdere artikelen gevonden</strong>
+                  <span>Kies het artikel dat je wilt bijwerken.</span>
+                  {barcodeMatches.map((product) => (
+                    <button
+                      className="barcode-match-option"
+                      key={product.id}
+                      onClick={() => selectProduct(product)}
+                      type="button"
+                    >
+                      <span className="barcode-match-copy">
+                        <strong>{product.name}</strong>
+                        <small>{product.sku ? `Code ${product.sku}` : `Barcode ${product.barcode}`} · {product.location ?? "Geen locatie"}</small>
+                      </span>
+                      <span className="barcode-match-stock">{product.stock_quantity.toLocaleString("nl-NL")} {product.unit}</span>
+                    </button>
+                  ))}
                 </div>
               ) : null}
 
-              {createOpen ? (
-                <form className="new-product-form" onSubmit={handleProductSubmit}>
-                  <div className="new-product-heading">
-                    <div><strong>Nieuw artikel toevoegen</strong><span>Eenmalig registreren; daarna kun je het scannen.</span></div>
-                    <button type="button" className="quiet-icon-button" aria-label="Formulier sluiten" onClick={() => setCreateOpen(false)}><InventoryIcon name="close" size={17} /></button>
-                  </div>
-                  <label className="field-label" htmlFor="new-product-name">Artikelnaam *</label>
-                  <input id="new-product-name" className="inventory-input" value={productName} onChange={(event) => setProductName(event.target.value)} required maxLength={120} placeholder="Bijvoorbeeld: microvezeldoek blauw" />
-                  <div className="form-grid-two">
-                    <label><span className="field-label">Barcode</span><input className="inventory-input" value={draftBarcode} onChange={(event) => setDraftBarcode(event.target.value)} maxLength={128} /></label>
-                    <label><span className="field-label">Artikelcode</span><input className="inventory-input" value={productSku} onChange={(event) => setProductSku(event.target.value)} maxLength={64} placeholder="Optioneel" /></label>
-                    <label><span className="field-label">Eenheid</span><select className="inventory-select" value={productUnit} onChange={(event) => setProductUnit(event.target.value)}><option value="stuk">Stuk</option><option value="pak">Pak</option><option value="doos">Doos</option><option value="liter">Liter</option><option value="kg">Kilogram</option><option value="rol">Rol</option></select></label>
-                    <label><span className="field-label">Magazijnlocatie</span><input className="inventory-input" value={productLocation} onChange={(event) => setProductLocation(event.target.value)} maxLength={100} placeholder="Bijvoorbeeld: Stelling A2" /></label>
-                    <label><span className="field-label">Minimumvoorraad</span><input className="inventory-input" type="number" min="0" step="0.001" value={minimumQuantity} onChange={(event) => setMinimumQuantity(event.target.value)} /></label>
-                  </div>
-                  <button className="primary-button form-save-button" type="submit" disabled={saving}><InventoryIcon name="plus" size={16} />{saving ? "Opslaan…" : "Artikel opslaan"}</button>
-                </form>
-              ) : null}
             </article>
 
-            {selectedProduct && barcode.trim() !== "" && recognizedProductId === selectedProduct.id ? (
-              <div className="recognized-workflow-connector" role="status">
-                <button
-                  className="recognized-product-next"
-                  type="button"
-                  aria-label="Artikel herkend. Ga naar voorraad bijwerken"
-                  onClick={focusMovementOptions}
-                >
-                  <InventoryIcon name="arrow" size={19} />
-                </button>
-                <span className="visually-hidden">Artikel herkend. Je kunt nu voorraad bijwerken.</span>
-              </div>
-            ) : null}
+            <div className={`workflow-connector ${selectedProduct ? "workflow-connector-ready" : ""}`} aria-live="polite">
+              <span className="workflow-connector-line" />
+              {!selectedProduct ? (
+                <span className="workflow-connector-copy">
+                  <strong>Eerst een artikel selecteren</strong>
+                  <span>Scan een barcode of kies een artikel uit de catalogus</span>
+                </span>
+              ) : null}
+              <button
+                className="recognized-product-next"
+                type="button"
+                aria-label="Ga naar voorraad bijwerken"
+                disabled={!selectedProduct}
+                onClick={focusMovementOptions}
+              >
+                <InventoryIcon name="arrow" size={19} />
+              </button>
+              <span className="workflow-connector-line" />
+            </div>
 
-            <article className="panel movement-panel">
+            <article
+              className={`panel movement-panel ${selectedProduct ? "" : "movement-panel-locked"}`}
+              ref={movementPanelRef}
+            >
               <div className="inventory-section-heading">
                 <div>
                   <span className="inventory-step-label"><span>02</span> VOORRAAD BIJWERKEN</span>
@@ -602,39 +665,80 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                 </div>
                 <span className="inventory-heading-icon movement-heading-icon"><InventoryIcon name="receipt" size={21} /></span>
               </div>
+              {!selectedProduct ? (
+                <div className="movement-locked-notice" role="status">
+                  <InventoryIcon name="scan" size={17} />
+                  <span><strong>Stap 2 is nog vergrendeld</strong>Selecteer of scan eerst een bestaand artikel.</span>
+                </div>
+              ) : (
+                <div className="movement-product-summary">
+                  <span className="movement-product-icon"><InventoryIcon name="box" size={21} /></span>
+                  <span className="movement-product-details">
+                    <strong>{selectedProduct.name}</strong>
+                    <span>{selectedProduct.sku ? `Artikelcode ${selectedProduct.sku}` : "Geen artikelcode"}{selectedProduct.location ? ` · ${selectedProduct.location}` : ""}</span>
+                  </span>
+                  <span className="movement-current-stock">
+                    <span>Huidige voorraad</span>
+                    <strong>{selectedProduct.stock_quantity.toLocaleString("nl-NL")} {selectedProduct.unit}</strong>
+                  </span>
+                </div>
+              )}
               <form className="movement-form" onSubmit={handleMovementSubmit}>
-                <fieldset className="movement-choice" ref={movementChoiceRef}>
-                  <legend>Wat wil je registreren?</legend>
-                  <label className={movementType === "in" ? "movement-option selected movement-in" : "movement-option"}>
-                    <input type="radio" name="movementType" value="in" checked={movementType === "in"} onChange={() => setMovementType("in")} />
-                    <span className="movement-option-icon"><InventoryIcon name="arrow" size={17} /></span>
-                    <span><strong>Ontvangen</strong><small>Goederen komen binnen</small></span>
-                  </label>
-                  <label className={movementType === "out" ? "movement-option selected movement-out" : "movement-option"}>
-                    <input type="radio" name="movementType" value="out" checked={movementType === "out"} onChange={() => setMovementType("out")} />
-                    <span className="movement-option-icon movement-out-icon"><InventoryIcon name="arrow" size={17} /></span>
-                    <span><strong>Afboeken</strong><small>Goederen gaan eruit</small></span>
-                  </label>
+                <fieldset className="movement-fields" disabled={!selectedProduct || loading || saving}>
+                  <fieldset className="movement-choice" ref={movementChoiceRef}>
+                    <legend>Wat wil je registreren?</legend>
+                    <label className={movementType === "in" ? "movement-option selected movement-in" : "movement-option"}>
+                      <input type="radio" name="movementType" value="in" checked={movementType === "in"} onChange={() => setMovementType("in")} />
+                      <span className="movement-option-icon"><InventoryIcon name="arrow" size={17} /></span>
+                      <span><strong>Ontvangen</strong><small>Goederen komen binnen</small></span>
+                    </label>
+                    <label className={movementType === "out" ? "movement-option selected movement-out" : "movement-option"}>
+                      <input type="radio" name="movementType" value="out" checked={movementType === "out"} onChange={() => setMovementType("out")} />
+                      <span className="movement-option-icon movement-out-icon"><InventoryIcon name="arrow" size={17} /></span>
+                      <span><strong>Afboeken</strong><small>Goederen gaan eruit</small></span>
+                    </label>
+                  </fieldset>
+                  <div className="form-grid-two movement-inputs">
+                    <label>
+                      <span className="field-label">Aantal *</span>
+                      <div className="quantity-wrap">
+                        <input className="inventory-input" type="number" min="0.001" max="1000000" step="0.001" required value={quantity} onChange={(event) => setQuantity(event.target.value)} />
+                        <span className="quantity-unit">{selectedProduct?.unit ?? "stuks"}</span>
+                      </div>
+                    </label>
+                    <label>
+                      <span className="field-label">Notitie <span className="optional-label">Optioneel</span></span>
+                      <input className="inventory-input" value={note} onChange={(event) => setNote(event.target.value)} maxLength={250} placeholder={movementType === "in" ? "Bijvoorbeeld: inkooporder" : "Bijvoorbeeld: verbruikt op locatie"} />
+                    </label>
+                  </div>
                 </fieldset>
-                <div className="form-grid-two movement-inputs">
-                  <label>
-                    <span className="field-label">Aantal *</span>
-                    <div className="quantity-wrap"><input className="inventory-input" type="number" min="0.001" max="1000000" step="0.001" required value={quantity} onChange={(event) => setQuantity(event.target.value)} /><span>{selectedProduct?.unit ?? "stuks"}</span></div>
-                  </label>
-                  <label>
-                    <span className="field-label">Notitie <span className="optional-label">Optioneel</span></span>
-                    <input className="inventory-input" value={note} onChange={(event) => setNote(event.target.value)} maxLength={250} placeholder={movementType === "in" ? "Bijvoorbeeld: inkooporder" : "Bijvoorbeeld: verbruikt op locatie"} />
-                  </label>
+                <div className={`stock-result ${projectedQuantity !== null && projectedQuantity < 0 ? "stock-result-invalid" : ""}`}>
+                  <span className="stock-result-heading">Voorraad na deze mutatie</span>
+                  <div className="stock-result-values">
+                    <span className="stock-result-current">
+                      <small>Nu</small>
+                      <strong>{selectedProduct ? `${selectedProduct.stock_quantity.toLocaleString("nl-NL")} ${selectedProduct.unit}` : "—"}</strong>
+                    </span>
+                    <span className="stock-result-arrow" aria-hidden="true"><InventoryIcon name="arrow" size={18} /></span>
+                    <span className="stock-result-next">
+                      <small>Na mutatie</small>
+                      <strong className={projectedQuantity !== null && projectedQuantity < 0 ? "stock-result-negative" : ""}>
+                        {selectedProduct && projectedQuantity !== null && projectedQuantity >= 0
+                          ? `${projectedQuantity.toLocaleString("nl-NL")} ${selectedProduct.unit}`
+                          : projectedQuantity !== null && projectedQuantity < 0
+                            ? "Onvoldoende voorraad"
+                            : "Selecteer een artikel"}
+                      </strong>
+                    </span>
+                  </div>
                 </div>
-                <div className="stock-result">
-                  <span>Voorraad na mutatie</span>
-                  <strong className={projectedQuantity !== null && projectedQuantity < 0 ? "stock-result-negative" : ""}>
-                    {selectedProduct && projectedQuantity !== null
-                      ? `${projectedQuantity.toLocaleString("nl-NL")} ${selectedProduct.unit}`
-                      : "Selecteer eerst een artikel"}
-                  </strong>
-                </div>
-                <button className={`primary-button movement-submit ${movementType === "out" ? "movement-submit-out" : ""}`} type="submit" disabled={saving || loading || !selectedProduct}>
+                {selectedProduct && movementType === "out" && quantityIsValid && projectedQuantity !== null && projectedQuantity < 0 ? (
+                  <p className="movement-validation-message" role="alert">Dit aantal is groter dan de beschikbare voorraad.</p>
+                ) : null}
+                {!quantityIsValid && selectedProduct ? (
+                  <p className="movement-validation-message">Vul een aantal groter dan nul in (maximaal drie decimalen).</p>
+                ) : null}
+                <button className={`primary-button movement-submit ${movementType === "out" ? "movement-submit-out" : ""}`} type="submit" disabled={!movementCanSubmit}>
                   <InventoryIcon name={movementType === "in" ? "arrow" : "receipt"} size={17} />
                   {saving ? "Voorraad wordt bijgewerkt…" : movementType === "in" ? "Ontvangst bevestigen" : "Afboeking bevestigen"}
                 </button>
@@ -651,9 +755,6 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                 <p>Huidige voorraad en magazijnlocaties.</p>
               </div>
               <div className="inventory-list-actions">
-                <span className={`realtime-badge ${liveConnected ? "realtime-connected" : ""}`}>
-                  <span /> {liveConnected ? "Live bijgewerkt" : "Automatisch vernieuwen"}
-                </span>
                 <button className="inventory-refresh" type="button" onClick={() => void loadInventory()} aria-label="Voorraad vernieuwen" title="Voorraad vernieuwen">
                   <InventoryIcon name="refresh" size={16} />
                 </button>
@@ -686,10 +787,9 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                         <td><span className="table-code">{product.sku ?? "—"}</span><span className="table-barcode">{product.barcode ?? "Geen barcode"}</span></td>
                         <td>{product.location ?? "Niet toegewezen"}</td>
                         <td><strong className="table-stock">{product.stock_quantity.toLocaleString("nl-NL")} <span>{product.unit}</span></strong></td>
-                        <td><span className={`product-status ${isLow ? "product-status-low" : "product-status-ok"}`}><span />{isLow ? "Bijbestellen" : "Op voorraad"}</span></td>
+                        <td><span className={`product-status ${isLow ? "product-status-low" : "product-status-ok"}`}>{isLow ? <><span />Bijbestellen</> : "Op voorraad"}</span></td>
                         <td><button className="table-action" type="button" onClick={() => {
                           setSelectedId(product.id);
-                          setRecognizedProductId(null);
                           setMovementType("in");
                           movementPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                         }}>Mutatie <InventoryIcon name="arrow" size={14} /></button></td>
@@ -706,9 +806,14 @@ export default function InventoryWorkspace({ email }: { email: string }) {
               <div>
                 <div className="eyebrow">CONTROLEERBAAR EN ACTUEEL</div>
                 <h2>Recente voorraadmutaties</h2>
-                <p>De laatste 30 ontvangsten en afboekingen.</p>
+                <p>De laatste 6 ontvangsten en afboekingen.</p>
               </div>
-              <span className="history-icon"><InventoryIcon name="clock" size={19} /></span>
+              <div className="history-heading-actions">
+                <span className="history-icon"><InventoryIcon name="clock" size={19} /></span>
+                <Link className="primary-button history-all-link" href="/erp/voorraad/mutaties">
+                  Alle mutaties bekijken <InventoryIcon name="arrow" size={15} />
+                </Link>
+              </div>
             </div>
             {loading ? <div className="history-empty">Mutaties worden geladen…</div> : movements.length === 0 ? (
               <div className="history-empty">
@@ -718,9 +823,9 @@ export default function InventoryWorkspace({ email }: { email: string }) {
               </div>
             ) : (
               <div className="history-list">
-                {movements.map((movement) => (
+                {movements.slice(0, 6).map((movement) => (
                   <article className="history-row" key={movement.id}>
-                    <span className={`history-type-icon ${movement.movement_type === "in" ? "history-in" : "history-out"}`}><InventoryIcon name={movement.movement_type === "in" ? "arrow" : "receipt"} size={17} /></span>
+                    <span className={`history-type-icon ${movement.movement_type === "in" ? "history-in" : "history-out"}`}><InventoryIcon name="arrow" size={17} /></span>
                     <div className="history-product"><strong>{movement.product?.name ?? "Artikel verwijderd"}</strong><span>{movement.note || (movement.movement_type === "in" ? "Goederen ontvangen" : "Goederen afgeboekt")}</span></div>
                     <time dateTime={movement.created_at}>{new Intl.DateTimeFormat("nl-NL", { dateStyle: "medium", timeStyle: "short" }).format(new Date(movement.created_at))}</time>
                     <strong className={movement.movement_type === "in" ? "history-quantity history-quantity-in" : "history-quantity history-quantity-out"}>
@@ -742,13 +847,14 @@ export default function InventoryWorkspace({ email }: { email: string }) {
       {scannerOpen ? (
         <CameraScanner
           onClose={() => setScannerOpen(false)}
+          onError={setError}
           onBarcode={(value) => {
             setScannerOpen(false);
             lookupBarcode(value);
           }}
         />
       ) : null}
-      {error || notice ? (
+      {error || notice || movementConfirmation ? (
         <div className="inventory-toast-stack" aria-live="polite">
           {error ? (
             <div className="inventory-alert inventory-alert-error" role="alert">
@@ -764,6 +870,27 @@ export default function InventoryWorkspace({ email }: { email: string }) {
               <InventoryIcon name="check" size={18} />
               <span>{notice}</span>
               <button className="inventory-toast-close" type="button" aria-label="Melding sluiten" onClick={() => setNotice("")}>
+                <InventoryIcon name="close" size={16} />
+              </button>
+            </div>
+          ) : null}
+          {movementConfirmation ? (
+            <div className={`inventory-alert inventory-alert-success movement-confirmation movement-confirmation-${movementConfirmation.movementType}`} role="status">
+              <span className="movement-confirmation-check"><InventoryIcon name="check" size={20} /></span>
+              <span className="movement-confirmation-copy">
+                <strong>{movementConfirmation.movementType === "in" ? "Opgeboekt" : "Afgeboekt"}</strong>
+                <span className="movement-confirmation-details">
+                  <span className="movement-confirmation-product">{movementConfirmation.productName}</span>
+                  <span className="movement-confirmation-quantity">
+                    {movementConfirmation.movementType === "in" ? "+" : "−"}{movementConfirmation.quantity.toLocaleString("nl-NL")} {movementConfirmation.unit}
+                  </span>
+                </span>
+              </span>
+              <span className="movement-confirmation-stock">
+                <small>Nieuwe voorraad</small>
+                <strong>{movementConfirmation.stockAfter.toLocaleString("nl-NL")} {movementConfirmation.unit}</strong>
+              </span>
+              <button className="inventory-toast-close" type="button" aria-label="Melding sluiten" onClick={() => setMovementConfirmation(null)}>
                 <InventoryIcon name="close" size={16} />
               </button>
             </div>

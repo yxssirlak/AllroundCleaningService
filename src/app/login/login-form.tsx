@@ -1,9 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { setRememberSessionPreference } from "@/lib/supabase/session-preference";
+import LoginLayout from "./login-layout";
+import PasswordVisibilityButton from "@/components/password-visibility-button";
 
 export default function LoginForm({
   configured,
@@ -15,16 +17,22 @@ export default function LoginForm({
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [forgotPassword, setForgotPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setMessage("");
     setBusy(true);
 
     try {
-      const supabase = createSupabaseBrowserClient();
+      setRememberSessionPreference(rememberMe);
+      const supabase = createSupabaseBrowserClient({ rememberSession: rememberMe });
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -45,57 +53,118 @@ export default function LoginForm({
     }
   }
 
-  return (
-    <main className="login-page">
-      <section className="login-card">
-        <Image
-          className="login-logo"
-          src="/logo.png"
-          alt="Allround Cleaning Service"
-          width={1024}
-          height={368}
-          priority
-        />
-        <div className="eyebrow">BEVEILIGD BEDRIJFSPORTAAL</div>
-        <h1>Welkom terug</h1>
-        <p className="login-intro">Log in met het account dat voor jou is aangemaakt.</p>
+  async function handlePasswordReset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setBusy(true);
 
-        {!configured ? (
-          <div className="login-config-notice" role="status">
-            De Supabase-verbinding moet eerst worden ingesteld. Vul de projectgegevens in
-            in <code>.env.local</code> en herstart de ontwikkelserver.
-          </div>
-        ) : (
-          <form className="login-form" onSubmit={handleSubmit}>
-            <label>
-              E-mailadres
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/login/wachtwoord-wijzigen`,
+      });
+      if (resetError) throw resetError;
+      setMessage("Als dit e-mailadres bij een account hoort, ontvang je een link om je wachtwoord opnieuw in te stellen.");
+    } catch (caught) {
+      console.error("Wachtwoordherstel aanvragen mislukt:", caught);
+      setError("De herstelmail kon niet worden verstuurd. Controleer het e-mailadres en probeer het opnieuw.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <LoginLayout>
+      <div className="eyebrow">BEDRIJFSPORTAAL</div>
+      <h1>{forgotPassword ? "Wachtwoord herstellen" : "Welkom terug"}</h1>
+      <p className="login-intro">
+        {forgotPassword
+          ? "Vul je e-mailadres in. We sturen je een link om een nieuw wachtwoord in te stellen."
+          : "Log in met het account dat voor jou is aangemaakt."}
+      </p>
+
+      {!configured ? (
+        <div className="login-config-notice" role="status">
+          De Supabase-verbinding moet eerst worden ingesteld. Vul de projectgegevens in
+          in <code>.env.local</code> en herstart de ontwikkelserver.
+        </div>
+      ) : forgotPassword ? (
+        <form className="login-form" onSubmit={handlePasswordReset}>
+          <label>
+            E-mailadres
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="naam@bedrijf.nl"
+            />
+          </label>
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          {message ? <p className="login-success" role="status">{message}</p> : null}
+          <button className="primary-button login-submit" type="submit" disabled={busy}>
+            {busy ? "Herstelmail versturen…" : "Herstelmail versturen"}
+          </button>
+          <button className="login-text-link login-back-link" type="button" onClick={() => {
+            setForgotPassword(false);
+            setError("");
+            setMessage("");
+          }}>
+            Terug naar inloggen
+          </button>
+        </form>
+      ) : (
+        <form className="login-form" onSubmit={handleSubmit}>
+          <label>
+            E-mailadres
+            <input
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="naam@bedrijf.nl"
+            />
+          </label>
+          <label>
+            Wachtwoord
+            <span className="login-password-wrap">
               <input
-                type="email"
-                autoComplete="username"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="naam@bedrijf.nl"
-              />
-            </label>
-            <label>
-              Wachtwoord
-              <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Je wachtwoord"
               />
+              <PasswordVisibilityButton visible={showPassword} onToggle={() => setShowPassword((value) => !value)} />
+            </span>
+          </label>
+          <div className="login-options">
+            <label className="login-remember">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+              />
+              <span>Blijf ingelogd</span>
             </label>
-            {error ? <p className="form-error" role="alert">{error}</p> : null}
-            <button className="primary-button login-submit" type="submit" disabled={busy}>
-              {busy ? "Bezig met inloggen..." : "Inloggen"}
+            <button className="login-text-link" type="button" onClick={() => {
+              setForgotPassword(true);
+              setError("");
+              setMessage("");
+            }}>
+              Wachtwoord vergeten?
             </button>
-          </form>
-        )}
-      </section>
-    </main>
+          </div>
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          <button className="primary-button login-submit" type="submit" disabled={busy}>
+            {busy ? "Bezig met inloggen..." : "Inloggen"}
+          </button>
+        </form>
+      )}
+    </LoginLayout>
   );
 }

@@ -2,17 +2,31 @@ import { NextResponse } from "next/server";
 import { requireInventoryUser } from "@/lib/inventory/api-auth";
 import { hasInventoryPrecision } from "@/lib/inventory/validation";
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireInventoryUser();
   if ("response" in auth) {
     return auth.response;
+  }
+
+  const searchParams = new URL(request.url).searchParams;
+  const requestedLimit = Number(searchParams.get("limit") ?? 30);
+  const requestedOffset = Number(searchParams.get("offset") ?? 0);
+  if (
+    !Number.isInteger(requestedLimit) ||
+    requestedLimit < 1 ||
+    requestedLimit > 100 ||
+    !Number.isInteger(requestedOffset) ||
+    requestedOffset < 0 ||
+    requestedOffset > 100000
+  ) {
+    return NextResponse.json({ error: "Ongeldige paginering voor de voorraadgeschiedenis." }, { status: 400 });
   }
 
   const { data: movements, error } = await auth.supabase
     .from("inventory_movements")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(30);
+    .range(requestedOffset, requestedOffset + requestedLimit);
 
   if (error) {
     console.error("Voorraadmutaties ophalen mislukt:", error.message);
@@ -22,7 +36,9 @@ export async function GET() {
     );
   }
 
-  const productIds = [...new Set(movements.map((movement) => movement.product_id))];
+  const pageMovements = movements.slice(0, requestedLimit);
+  const hasMore = movements.length > requestedLimit;
+  const productIds = [...new Set(pageMovements.map((movement) => movement.product_id))];
   const { data: products, error: productsError } = productIds.length
     ? await auth.supabase
         .from("inventory_products")
@@ -41,10 +57,11 @@ export async function GET() {
   const productNames = new Map(products.map((product) => [product.id, product]));
 
   return NextResponse.json({
-    movements: movements.map((movement) => ({
+    movements: pageMovements.map((movement) => ({
       ...movement,
       product: productNames.get(movement.product_id) ?? null,
     })),
+    hasMore,
   });
 }
 

@@ -1,7 +1,8 @@
 create table if not exists public.inventory_products (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(trim(name)) between 1 and 120),
-  sku text unique check (sku is null or char_length(sku) <= 64),
+  sku text not null unique constraint inventory_products_sku_not_blank_check
+    check (char_length(trim(sku)) between 1 and 64),
   barcode text unique check (barcode is null or char_length(barcode) between 1 and 128),
   unit text not null default 'stuk' check (char_length(unit) between 1 and 20),
   location text check (location is null or char_length(location) <= 100),

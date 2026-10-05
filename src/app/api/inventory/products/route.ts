@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const barcode = typeof body.barcode === "string" ? body.barcode.trim() || null : null;
-  const sku = typeof body.sku === "string" ? body.sku.trim() || null : null;
+  const sku = typeof body.sku === "string" ? body.sku.trim() : "";
   const unit = typeof body.unit === "string" ? body.unit.trim() : "stuk";
   const location = typeof body.location === "string" ? body.location.trim() || null : null;
   const minimumQuantity =
@@ -72,7 +72,8 @@ export async function POST(request: Request) {
     !name ||
     name.length > 120 ||
     (barcode !== null && barcode.length > 128) ||
-    (sku !== null && sku.length > 64) ||
+    !sku ||
+    sku.length > 64 ||
     !unit ||
     unit.length > 20 ||
     (location !== null && location.length > 100) ||
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
     minimumQuantity > 1000000
   ) {
     return NextResponse.json(
-      { error: "Controleer de artikelnaam, barcode, eenheid en minimumvoorraad." },
+      { error: "Vul een artikelnaam en artikelcode in en controleer de barcode, eenheid en minimumvoorraad." },
       { status: 400 },
     );
   }
