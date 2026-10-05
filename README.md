@@ -65,3 +65,5 @@ toegelaten gebruikers werken in deze eerste versie in dezelfde bedrijfsvoorraad.
 Voor cameratoegang is HTTPS nodig, behalve op `localhost`. Als een artikel nog
 geen barcode heeft, kun je het ook selecteren vanuit de catalogus.
 .
+NEXT_PUBLIC_SUPABASE_URL=https://xxsviljyttgtehfwkoll.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4c3ZpbGp5dHRndGVoZndrb2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyMDcwOTUsImV4cCI6MjEwNjc4MzA5NX0.Bqpk9AEpR6unQbxOHxVmFyxtMxjtfQD67boWMiGCyL8
