@@ -64,3 +64,4 @@ toegelaten gebruikers werken in deze eerste versie in dezelfde bedrijfsvoorraad.
 
 Voor cameratoegang is HTTPS nodig, behalve op `localhost`. Als een artikel nog
 geen barcode heeft, kun je het ook selecteren vanuit de catalogus.
+.
