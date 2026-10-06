@@ -32,7 +32,13 @@ vereist een ingelogde gebruiker; er is geen publieke registratie.
 3. Voer de SQL-migraties in volgorde uit in de SQL Editor van het Supabase-project:
    [`20261005160000_inventory.sql`](./supabase/migrations/20261005160000_inventory.sql)
    en daarna
-   [`20261005230500_inventory_sku_required.sql`](./supabase/migrations/20261005230500_inventory_sku_required.sql).
+   [`20261005230500_inventory_sku_required.sql`](./supabase/migrations/20261005230500_inventory_sku_required.sql)
+   en
+   [`20261006163000_login_email_exists.sql`](./supabase/migrations/20261006163000_login_email_exists.sql).
+   De laatste migratie maakt een beperkte RPC beschikbaar voor de login om aan
+   te geven of een e-mailadres bestaat. Daardoor is voor deze controle geen
+   Supabase-secretkey nodig. Deze controle kan wel onthullen welke adressen een
+   account hebben.
 4. Schakel openbare registratie uit en nodig gebruikers alleen uit via
    Supabase Authentication.
    Voeg bij **Authentication → URL Configuration → Redirect URLs** ook

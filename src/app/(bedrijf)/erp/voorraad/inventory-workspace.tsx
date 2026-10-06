@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import BusinessSidebar from "@/components/business-sidebar";
+import BusinessTopbarTools from "@/components/business-topbar-tools";
 import StyledSelect from "@/components/styled-select";
 import { hasInventoryPrecision } from "@/lib/inventory/validation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -507,7 +508,7 @@ export default function InventoryWorkspace({ email }: { email: string }) {
             <span className="breadcrumb-divider">/</span><strong>Voorraad</strong>
           </div>
           <div className="topbar-right inventory-topbar">
-
+            <BusinessTopbarTools accountName={email} />
             <button className="signout-button" type="button" onClick={handleSignOut} aria-label="Uitloggen">
               <InventoryIcon name="logout" size={17} /><span>Uitloggen</span>
             </button>

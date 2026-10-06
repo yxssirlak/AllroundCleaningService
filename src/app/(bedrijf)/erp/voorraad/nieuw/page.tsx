@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import BusinessSidebar from "@/components/business-sidebar";
+import BusinessTopbarTools from "@/components/business-topbar-tools";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import NewInventoryProductForm from "./new-inventory-product-form";
@@ -41,7 +42,7 @@ export default async function NewInventoryProductPage({ searchParams }: PageProp
 
   return (
     <div className="portal inventory-portal">
-      <BusinessSidebar currentPage="inventory" accountLabel="Ingelogd" accountDetail={email} />
+      <BusinessSidebar currentPage="inventory-new" accountLabel="Ingelogd" accountDetail={email} />
       <main className="main-area">
         <header className="topbar">
           <div className="breadcrumbs">
@@ -51,6 +52,7 @@ export default async function NewInventoryProductPage({ searchParams }: PageProp
             <Link href="/erp/voorraad">Voorraad</Link>
             <span className="breadcrumb-divider">/</span><strong>Nieuw artikel</strong>
           </div>
+          <BusinessTopbarTools accountName={email} />
         </header>
 
         <div className="dashboard-content inventory-content inventory-create-content">

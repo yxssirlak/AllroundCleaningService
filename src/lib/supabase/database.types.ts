@@ -97,6 +97,12 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      login_email_exists: {
+        Args: {
+          p_email: string;
+        };
+        Returns: boolean;
+      };
       is_inventory_member: {
         Args: Record<string, never>;
         Returns: boolean;

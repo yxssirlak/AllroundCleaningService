@@ -1,5 +1,6 @@
 import Link from "next/link";
 import BusinessSidebar from "@/components/business-sidebar";
+import BusinessTopbarTools from "@/components/business-topbar-tools";
 
 type IconName =
   | "grid"
@@ -132,7 +133,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 
 export default function BusinessDashboard() {
   return (
-    <div className="portal">
+    <div className="portal dashboard-portal">
       <BusinessSidebar
         currentPage="dashboard"
         accountLabel="Account"
@@ -147,18 +148,7 @@ export default function BusinessDashboard() {
             <span className="breadcrumb-divider">/</span>
             <strong>Dashboard</strong>
           </div>
-          <div className="topbar-right">
-            <details className="notification-menu">
-              <summary className="notification-button" aria-label="Meldingen">
-                <Icon name="bell" size={18} />
-              </summary>
-              <div className="notification-popover">
-                <strong>Meldingen</strong>
-                <p>Meldingen verschijnen hier zodra de onderdelen zijn gekoppeld.</p>
-              </div>
-            </details>
-            <div className="avatar avatar-user" aria-label="Account"><Icon name="users" size={17} /></div>
-          </div>
+          <BusinessTopbarTools accountName="Allround Cleaning" />
         </header>
 
         <div className="dashboard-content">
@@ -216,7 +206,6 @@ export default function BusinessDashboard() {
                 <h2>De bouwstenen van je bedrijfsportaal</h2>
                 <p>Open een onderdeel voor meer informatie. De functies worden stap voor stap aangesloten.</p>
               </div>
-              <span className="section-count">7 ONDERDELEN</span>
             </div>
             <div className="module-grid">
               <Link className="module-card module-blue module-card-link" href="/erp/voorraad">

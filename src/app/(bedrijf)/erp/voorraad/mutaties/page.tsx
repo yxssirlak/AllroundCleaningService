@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import BusinessSidebar from "@/components/business-sidebar";
+import BusinessTopbarTools from "@/components/business-topbar-tools";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import InventoryMovementHistory from "./inventory-movement-history";
@@ -34,7 +35,7 @@ export default async function InventoryMovementsPage() {
 
   return (
     <div className="portal inventory-portal">
-      <BusinessSidebar currentPage="inventory" accountLabel="Ingelogd" accountDetail={email} />
+      <BusinessSidebar currentPage="inventory-history" accountLabel="Ingelogd" accountDetail={email} />
       <main className="main-area">
         <header className="topbar">
           <div className="breadcrumbs">
@@ -44,6 +45,7 @@ export default async function InventoryMovementsPage() {
             <Link href="/erp/voorraad">Voorraad</Link>
             <span className="breadcrumb-divider">/</span><strong>Mutaties</strong>
           </div>
+          <BusinessTopbarTools accountName={email} />
         </header>
 
         <div className="dashboard-content inventory-content inventory-history-content">

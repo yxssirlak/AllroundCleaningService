@@ -190,6 +190,16 @@ a {
   gap: 5px;
 }
 
+.sidebar-nav-group {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebar-section-label {
+  margin-top: 14px;
+  margin-bottom: 5px;
+}
+
 .nav-item {
   position: relative;
   display: flex;
@@ -204,6 +214,57 @@ a {
   text-decoration: none;
   transition: background 180ms ease, color 180ms ease, transform 180ms ease;
   white-space: nowrap;
+}
+
+.nav-group-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nav-group-chevron {
+  margin-left: auto;
+  transition: transform 180ms ease;
+}
+
+.nav-group-toggle[aria-expanded="true"] .nav-group-chevron {
+  transform: rotate(90deg);
+}
+
+.nav-submenu {
+  display: grid;
+  gap: 2px;
+  margin-left: 22px;
+  border-left: 1px solid #dce5ec;
+  padding-left: 11px;
+}
+
+.nav-submenu[hidden] {
+  display: none;
+}
+
+.nav-subitem {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  border-radius: 7px;
+  padding: 0 10px;
+  color: #718095;
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.nav-subitem:hover,
+.nav-subitem.active {
+  background: #f2f8fc;
+  color: #0878b9;
+}
+
+.nav-subitem.active {
+  font-weight: 700;
 }
 
 .nav-item:hover {
@@ -319,6 +380,11 @@ a {
   .portal:has(> .sidebar .sidebar-collapse-button[aria-expanded="false"]) .sidebar-label,
   .portal:has(> .sidebar .sidebar-collapse-button[aria-expanded="false"]) .nav-item > span,
   .portal:has(> .sidebar .sidebar-collapse-button[aria-expanded="false"]) .account-copy {
+    display: none;
+  }
+
+  .portal:has(> .sidebar .sidebar-collapse-button[aria-expanded="false"]) .nav-submenu,
+  .portal:has(> .sidebar .sidebar-collapse-button[aria-expanded="false"]) .nav-group-chevron {
     display: none;
   }
 
@@ -473,6 +539,90 @@ a {
   gap: 15px;
 }
 
+.business-topbar-tools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.quick-search {
+  position: relative;
+  display: flex;
+  width: clamp(150px, 22vw, 270px);
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e5ebf1;
+  border-radius: 9px;
+  background: #f9fbfd;
+  padding: 0 10px;
+  color: #7a899b;
+}
+
+.quick-search:focus-within {
+  border-color: #73bddd;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(7 138 214 / 9%);
+}
+
+.quick-search > svg {
+  flex: 0 0 auto;
+}
+
+.quick-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #34465c;
+  font: inherit;
+  font-size: 13px;
+}
+
+.quick-search input::placeholder {
+  color: #8d9aaa;
+}
+
+.quick-search-results {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 7px);
+  right: 0;
+  left: 0;
+  display: grid;
+  gap: 3px;
+  border: 1px solid #e3eaf0;
+  border-radius: 10px;
+  margin: 0;
+  background: #fff;
+  padding: 5px;
+  box-shadow: 0 12px 28px rgb(28 49 74 / 14%);
+  list-style: none;
+}
+
+.quick-search-results a,
+.quick-search-empty {
+  display: block;
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: #40536a;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.quick-search-results a:hover,
+.quick-search-results a:focus-visible {
+  outline: none;
+  background: #eff8fc;
+  color: #0878b9;
+}
+
+.quick-search-empty {
+  color: #7d8a9d;
+}
+
 .notification-menu {
   position: relative;
 }
@@ -560,9 +710,23 @@ a {
 .avatar-user {
   width: 34px;
   height: 34px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
   background: #deeff8;
   color: #0878b9;
   font-size: 12px;
+}
+
+.topbar-account {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: #52647a;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .dashboard-content {
@@ -3086,6 +3250,12 @@ h1 {
   box-shadow: 0 0 0 3px rgb(7 138 214 / 9%);
 }
 
+.login-form input[aria-invalid="true"],
+.login-form input[aria-invalid="true"]:focus {
+  border-color: #ad5049;
+  box-shadow: 0 0 0 3px rgb(173 80 73 / 10%);
+}
+
 .login-submit {
   width: 100%;
   min-height: 50px;
@@ -3613,17 +3783,49 @@ h1 {
   .main-nav {
     display: flex;
     overflow-x: auto;
+    align-items: flex-start;
     gap: 4px;
     border-top: 1px solid var(--line);
     padding: 8px 0;
     scrollbar-width: thin;
   }
 
+  .sidebar-nav-group,
+  .nav-submenu {
+    display: contents;
+  }
+
+  .nav-submenu[hidden] {
+    display: none;
+  }
+
   .nav-item {
+    flex: 0 0 auto;
     min-height: 38px;
     gap: 7px;
     padding: 0 10px;
     font-size: 12px;
+  }
+
+  .nav-subitem {
+    min-height: 38px;
+    flex: 0 0 auto;
+    border-left: 0;
+    border-radius: 8px;
+    background: #f8fafb;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+
+  .nav-subitem::before {
+    margin-right: 5px;
+    color: #93a3b2;
+    content: "↳";
+  }
+
+  .nav-group-chevron {
+    width: 13px;
+    height: 13px;
   }
 
   .nav-item svg {
@@ -3680,7 +3882,33 @@ h1 {
   }
 
   .topbar-right {
-    gap: 12px;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .business-topbar-tools {
+    gap: 5px;
+  }
+
+  .quick-search {
+    width: min(30vw, 170px);
+    min-width: 104px;
+    min-height: 34px;
+    gap: 5px;
+    padding: 0 7px;
+  }
+
+  .quick-search input {
+    font-size: 12px;
+  }
+
+  .topbar-account > span:not(.avatar) {
+    display: none;
+  }
+
+  .notification-button {
+    width: 32px;
+    height: 32px;
   }
 
   .dashboard-content {
@@ -4624,4 +4852,168 @@ h3 {
     min-width: 54px;
     font-size: 9px;
   }
+}
+
+.inventory-portal {
+  font-size: 15px;
+}
+
+.inventory-portal .signout-button,
+.inventory-portal .inventory-welcome p,
+.inventory-portal .inventory-metric-label,
+.inventory-portal .inventory-section-heading p,
+.inventory-portal .inventory-list-heading p,
+.inventory-portal .inventory-alert,
+.inventory-portal .primary-button,
+.inventory-portal .inventory-table td,
+.inventory-portal .inventory-search input,
+.inventory-portal .inventory-input,
+.inventory-portal .barcode-input-wrap input,
+.inventory-portal .scan-methods > span,
+.inventory-portal .camera-button,
+.inventory-portal .secondary-button,
+.inventory-portal .barcode-submit,
+.inventory-portal .styled-select-trigger,
+.inventory-portal .styled-select-option,
+.inventory-portal .field-label,
+.inventory-portal .selected-product-copy strong,
+.inventory-portal .new-product-heading strong,
+.inventory-portal .movement-choice legend,
+.inventory-portal .movement-option strong,
+.inventory-portal .stock-result strong,
+.inventory-portal .barcode-match-copy strong,
+.inventory-portal .table-empty strong,
+.inventory-portal .history-empty strong,
+.inventory-portal .history-product strong,
+.inventory-portal .movement-product-details > span,
+.inventory-portal .movement-current-stock > span,
+.inventory-portal .stock-result-values small,
+.inventory-portal .history-load-more,
+.inventory-portal .table-action,
+.inventory-portal .history-quantity {
+  font-size: 14px;
+}
+
+.inventory-portal .inventory-step-label,
+.inventory-portal .inventory-table th,
+.inventory-portal .table-code,
+.inventory-portal .table-barcode,
+.inventory-portal .table-stock > span,
+.inventory-portal .product-status,
+.inventory-portal .table-action,
+.inventory-portal .inventory-or,
+.inventory-portal .selected-product-copy > span,
+.inventory-portal .stock-pill,
+.inventory-portal .new-product-heading > div > span,
+.inventory-portal .movement-option small,
+.inventory-portal .quantity-wrap > span,
+.inventory-portal .optional-label,
+.inventory-portal .stock-result > span,
+.inventory-portal .movement-footnote,
+.inventory-portal .movement-validation-message,
+.inventory-portal .movement-locked-notice > span,
+.inventory-portal .movement-locked-notice strong,
+.inventory-portal .history-product > span,
+.inventory-portal .history-row time,
+.inventory-portal .styled-select-option-copy > small,
+.inventory-portal .workflow-connector-copy strong,
+.inventory-portal .workflow-connector-copy > span,
+.inventory-portal .barcode-match-list > span,
+.inventory-portal .barcode-match-copy small,
+.inventory-portal .barcode-match-stock,
+.inventory-portal .movement-confirmation-stock small,
+.inventory-portal .table-empty > span:last-child,
+.inventory-portal .history-empty > span:last-child {
+  font-size: 12px;
+}
+
+.inventory-portal .inventory-section-heading h2,
+.inventory-portal .inventory-list-heading h2 {
+  font-size: 17px;
+}
+
+.inventory-portal .inventory-table th {
+  height: 42px;
+}
+
+.inventory-portal .inventory-table td {
+  height: 60px;
+}
+
+.inventory-portal .movement-submit,
+.inventory-portal .form-save-button {
+  font-size: 14px;
+}
+
+@media (max-width: 680px) {
+  .inventory-portal .inventory-table th,
+  .inventory-portal .full-history-list .history-row time {
+    font-size: 11px;
+  }
+
+  .inventory-portal .full-history-list .history-product strong,
+  .inventory-portal .full-history-list .history-quantity {
+    font-size: 12px;
+  }
+
+  .inventory-portal .full-history-list .history-product > span {
+    font-size: 11px;
+  }
+
+  .inventory-portal .full-history-list .history-row time {
+    max-width: 86px;
+  }
+}
+
+.dashboard-portal {
+  font-size: 15px;
+}
+
+.dashboard-portal .primary-button,
+.dashboard-portal .intro-link,
+.dashboard-portal .notification-popover p,
+.dashboard-portal .welcome-row p,
+.dashboard-portal .section-heading > div > p,
+.dashboard-portal .panel-heading > div > p,
+.dashboard-portal .status-card > p,
+.dashboard-portal .empty-state strong,
+.dashboard-portal .step-copy strong {
+  font-size: 14px;
+}
+
+.dashboard-portal .eyebrow,
+.dashboard-portal .intro-kicker,
+.dashboard-portal .status-label,
+.dashboard-portal .status-note,
+.dashboard-portal .module-summary-copy > span,
+.dashboard-portal .module-link-description,
+.dashboard-portal .module-detail p,
+.dashboard-portal .empty-state > span:last-child,
+.dashboard-portal .getting-started-heading p,
+.dashboard-portal .step-copy > span,
+.dashboard-portal .step-detail,
+.dashboard-portal .page-footer {
+  font-size: 12px;
+}
+
+.dashboard-portal .section-heading h2,
+.dashboard-portal .getting-started-heading h2 {
+  font-size: 20px;
+}
+
+.dashboard-portal .status-card h2,
+.dashboard-portal .panel-heading h2 {
+  font-size: 18px;
+}
+
+.dashboard-portal .module-summary-copy strong {
+  font-size: 15px;
+}
+
+.dashboard-portal .module-status {
+  font-size: 12px;
+}
+
+.dashboard-portal .step-number {
+  font-size: 12px;
 }

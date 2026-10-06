@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
-type SidebarIconName = "grid" | "users" | "calendar" | "briefcase" | "receipt" | "sparkles" | "settings" | "box";
+type SidebarIconName = "grid" | "users" | "calendar" | "briefcase" | "receipt" | "sparkles" | "settings" | "box" | "book";
 
 function SidebarIcon({ name, size = 20 }: { name: SidebarIconName; size?: number }) {
   const paths: Record<SidebarIconName, React.ReactNode> = {
@@ -16,6 +16,7 @@ function SidebarIcon({ name, size = 20 }: { name: SidebarIconName; size?: number
     sparkles: <><path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z" /><path d="m19 14 1.2 2.8L23 18l-2.8 1.2L19 22l-1.2-2.8L15 18l2.8-1.2L19 14Z" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" /></>,
     box: <><path d="m21 8-9-5-9 5v8l9 5 9-5V8Z" /><path d="m3.3 7.9 8.7 5 8.7-5M12 13v8M7.5 5.5l9 5" /></>,
+    book: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /></>,
   };
 
   return (
@@ -25,9 +26,7 @@ function SidebarIcon({ name, size = 20 }: { name: SidebarIconName; size?: number
   );
 }
 
-const navigation: { label: string; icon: SidebarIconName; href?: string }[] = [
-  { label: "Dashboard", icon: "grid", href: "/dashboard" },
-  { label: "ERP & Voorraad", icon: "box", href: "/erp/voorraad" },
+const businessModules: { label: string; icon: SidebarIconName }[] = [
   { label: "Klanten & CRM", icon: "users" },
   { label: "Planning", icon: "calendar" },
   { label: "Medewerkers", icon: "briefcase" },
@@ -41,12 +40,13 @@ export default function BusinessSidebar({
   accountDetail,
   showSettings = false,
 }: {
-  currentPage: "dashboard" | "inventory";
+  currentPage: "dashboard" | "inventory" | "inventory-history" | "inventory-new";
   accountLabel: string;
   accountDetail: string;
   showSettings?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [inventoryExpanded, setInventoryExpanded] = useState(currentPage.startsWith("inventory"));
 
   return (
     <aside className="sidebar">
@@ -71,25 +71,59 @@ export default function BusinessSidebar({
       </div>
       <div className="sidebar-label">WERKRUIMTE</div>
       <nav className="main-nav" id="business-primary-navigation" aria-label="Hoofdnavigatie">
-        {navigation.map((item) => {
-          const active = (currentPage === "dashboard" && item.label === "Dashboard")
-            || (currentPage === "inventory" && item.label === "ERP & Voorraad");
-          const className = `nav-item${active ? " active" : ""}${!item.href ? " nav-coming-soon" : ""}`;
-          const content = <><SidebarIcon name={item.icon} /><span>{item.label}</span>{!item.href ? <span className="coming-soon">In opbouw</span> : null}</>;
-
-          return item.href ? (
-            <Link className={className} href={item.href} key={item.label} title={item.label} aria-current={active ? "page" : undefined}>
-              {content}
-            </Link>
-          ) : (
-            <a className={className} href={currentPage === "dashboard" ? "#modules" : "/dashboard#modules"} key={item.label} title={item.label}>
-              {content}
-            </a>
-          );
-        })}
+        <div className="sidebar-nav-group">
+          <Link
+            className={`nav-item${currentPage === "dashboard" ? " active" : ""}`}
+            href="/dashboard"
+            title="Dashboard"
+            aria-current={currentPage === "dashboard" ? "page" : undefined}
+          >
+            <SidebarIcon name="grid" /><span>Dashboard</span>
+          </Link>
+        </div>
+        <div className="sidebar-nav-group">
+          <button
+            className={`nav-item nav-group-toggle${currentPage.startsWith("inventory") ? " active" : ""}`}
+            type="button"
+            title="ERP & Voorraad"
+            aria-expanded={inventoryExpanded}
+            aria-controls="inventory-subnavigation"
+            onClick={() => setInventoryExpanded((expanded) => !expanded)}
+          >
+            <SidebarIcon name="box" />
+            <span>ERP & Voorraad</span>
+            <svg className="nav-group-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </button>
+          <div
+            className="nav-submenu"
+            id="inventory-subnavigation"
+            aria-label="ERP en voorraadpagina's"
+            hidden={!inventoryExpanded}
+          >
+            <Link className={`nav-subitem${currentPage === "inventory" ? " active" : ""}`} href="/erp/voorraad" aria-current={currentPage === "inventory" ? "page" : undefined}>Voorraad</Link>
+            <Link className={`nav-subitem${currentPage === "inventory-history" ? " active" : ""}`} href="/erp/voorraad/mutaties" aria-current={currentPage === "inventory-history" ? "page" : undefined}>Mutaties</Link>
+            <Link className={`nav-subitem${currentPage === "inventory-new" ? " active" : ""}`} href="/erp/voorraad/nieuw" aria-current={currentPage === "inventory-new" ? "page" : undefined}>Nieuw artikel</Link>
+          </div>
+        </div>
+        <div className="sidebar-label sidebar-section-label">BEDRIJFSVOERING</div>
+        {businessModules.map((item) => (
+          <a
+            className="nav-item nav-coming-soon"
+            href="/dashboard#modules"
+            key={item.label}
+            title={item.label}
+          >
+            <SidebarIcon name={item.icon} /><span>{item.label}</span><span className="coming-soon">In opbouw</span>
+          </a>
+        ))}
+        <a className="nav-item nav-coming-soon" href="/dashboard#eerste-stappen" title="Leercentrum">
+          <SidebarIcon name="book" /><span>Leercentrum</span><span className="coming-soon">In opbouw</span>
+        </a>
       </nav>
       <div className="sidebar-bottom">
-        <div className="sidebar-label">BEHEER</div>
+        <div className="sidebar-label" id="beheer">BEHEER</div>
         {showSettings ? (
           <a className="nav-item nav-coming-soon" href="#modules" title="Instellingen">
             <SidebarIcon name="settings" /><span>Instellingen</span><span className="coming-soon">In opbouw</span>

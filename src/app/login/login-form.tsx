@@ -21,12 +21,18 @@ export default function LoginForm({
   const [rememberMe, setRememberMe] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [invalidLoginField, setInvalidLoginField] = useState<"email" | "password" | null>(null);
   const [message, setMessage] = useState("");
   const [forgotPassword, setForgotPassword] = useState(false);
 
+  function clearLoginError() {
+    setError("");
+    setInvalidLoginField(null);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
+    clearLoginError();
     setMessage("");
     setBusy(true);
 
@@ -39,14 +45,34 @@ export default function LoginForm({
       });
 
       if (signInError) {
-        setError("Inloggen is niet gelukt. Controleer je e-mailadres en wachtwoord.");
+        if (signInError.code !== "invalid_credentials") {
+          console.error("Inloggen bij het bedrijfsportaal mislukt:", signInError.message);
+          setError("Inloggen is niet gelukt. Probeer het later opnieuw.");
+          return;
+        }
+
+        const { data: emailExists, error: emailCheckError } = await supabase.rpc(
+          "login_email_exists",
+          { p_email: email.trim() },
+        );
+        if (emailCheckError || typeof emailExists !== "boolean") {
+          setError("Inloggegevens onjuist. Controleer je e-mailadres en wachtwoord.");
+          return;
+        }
+
+        if (emailExists) {
+          setInvalidLoginField("password");
+          setError("Wachtwoord incorrect. Controleer je wachtwoord.");
+        } else {
+          setInvalidLoginField("email");
+          setError("Dit e-mailadres is niet bekend. Controleer het adres.");
+        }
         return;
       }
 
       router.replace(nextPath);
       router.refresh();
-    } catch (caught) {
-      console.error("Inloggen bij het bedrijfsportaal mislukt:", caught);
+    } catch {
       setError("Er ging iets mis bij het inloggen. Probeer het later opnieuw.");
     } finally {
       setBusy(false);
@@ -81,7 +107,7 @@ export default function LoginForm({
       <p className="login-intro">
         {forgotPassword
           ? "Vul je e-mailadres in. We sturen je een link om een nieuw wachtwoord in te stellen."
-          : "Log in met het account dat voor jou is aangemaakt."}
+          : "Log in om door te gaan naar je werkomgeving."}
       </p>
 
       {!configured ? (
@@ -109,7 +135,7 @@ export default function LoginForm({
           </button>
           <button className="login-text-link login-back-link" type="button" onClick={() => {
             setForgotPassword(false);
-            setError("");
+            clearLoginError();
             setMessage("");
           }}>
             Terug naar inloggen
@@ -124,8 +150,12 @@ export default function LoginForm({
               autoComplete="username"
               required
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                clearLoginError();
+              }}
               placeholder="naam@bedrijf.nl"
+              aria-invalid={invalidLoginField === "email"}
             />
           </label>
           <label>
@@ -136,8 +166,12 @@ export default function LoginForm({
                 autoComplete="current-password"
                 required
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  clearLoginError();
+                }}
                 placeholder="Je wachtwoord"
+                aria-invalid={invalidLoginField === "password"}
               />
               <PasswordVisibilityButton visible={showPassword} onToggle={() => setShowPassword((value) => !value)} />
             </span>
@@ -153,7 +187,7 @@ export default function LoginForm({
             </label>
             <button className="login-text-link" type="button" onClick={() => {
               setForgotPassword(true);
-              setError("");
+              clearLoginError();
               setMessage("");
             }}>
               Wachtwoord vergeten?
