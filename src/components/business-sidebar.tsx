@@ -40,20 +40,20 @@ export default function BusinessSidebar({
   accountDetail,
   showSettings = false,
 }: {
-  currentPage: "dashboard" | "inventory" | "inventory-history" | "inventory-new";
+  currentPage: "dashboard" | "inventory" | "inventory-history" | "inventory-new" | "inventory-trends";
   accountLabel: string;
   accountDetail: string;
   showSettings?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [inventoryExpanded, setInventoryExpanded] = useState(currentPage.startsWith("inventory"));
+  const [collapsedInventoryOpen, setCollapsedInventoryOpen] = useState(false);
 
   return (
     <aside className="sidebar">
       <div className="business-sidebar-header">
         <Link className="brand" href="/dashboard" aria-label="Allround dashboard">
           <Image src="/logo.png" alt="Allround Cleaning Service" width={1024} height={368} priority />
-          <span className="sidebar-brand-mark"><SidebarIcon name="box" size={21} /></span>
         </Link>
         <button
           className="sidebar-collapse-button"
@@ -61,9 +61,12 @@ export default function BusinessSidebar({
           aria-label={collapsed ? "Navigatie uitklappen" : "Navigatie inklappen"}
           aria-expanded={!collapsed}
           aria-controls="business-primary-navigation"
-          onClick={() => setCollapsed((value) => !value)}
+          onClick={() => {
+            setCollapsed((value) => !value);
+            setCollapsedInventoryOpen(false);
+          }}
         >
-          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
             <path d="M9 5v14m5-10 3 3-3 3" />
           </svg>
@@ -77,6 +80,11 @@ export default function BusinessSidebar({
             href="/dashboard"
             title="Dashboard"
             aria-current={currentPage === "dashboard" ? "page" : undefined}
+            onClick={(event) => {
+              if (!collapsed) return;
+              event.preventDefault();
+              setCollapsed(false);
+            }}
           >
             <SidebarIcon name="grid" /><span>Dashboard</span>
           </Link>
@@ -86,9 +94,15 @@ export default function BusinessSidebar({
             className={`nav-item nav-group-toggle${currentPage.startsWith("inventory") ? " active" : ""}`}
             type="button"
             title="ERP & Voorraad"
-            aria-expanded={inventoryExpanded}
+            aria-expanded={collapsed ? collapsedInventoryOpen : inventoryExpanded}
             aria-controls="inventory-subnavigation"
-            onClick={() => setInventoryExpanded((expanded) => !expanded)}
+            onClick={() => {
+              if (collapsed) {
+                setCollapsedInventoryOpen((open) => !open);
+                return;
+              }
+              setInventoryExpanded((expanded) => !expanded);
+            }}
           >
             <SidebarIcon name="box" />
             <span>ERP & Voorraad</span>
@@ -100,11 +114,12 @@ export default function BusinessSidebar({
             className="nav-submenu"
             id="inventory-subnavigation"
             aria-label="ERP en voorraadpagina's"
-            hidden={!inventoryExpanded}
+            hidden={collapsed ? !collapsedInventoryOpen : !inventoryExpanded}
           >
-            <Link className={`nav-subitem${currentPage === "inventory" ? " active" : ""}`} href="/erp/voorraad" aria-current={currentPage === "inventory" ? "page" : undefined}>Voorraad</Link>
-            <Link className={`nav-subitem${currentPage === "inventory-history" ? " active" : ""}`} href="/erp/voorraad/mutaties" aria-current={currentPage === "inventory-history" ? "page" : undefined}>Mutaties</Link>
-            <Link className={`nav-subitem${currentPage === "inventory-new" ? " active" : ""}`} href="/erp/voorraad/nieuw" aria-current={currentPage === "inventory-new" ? "page" : undefined}>Nieuw artikel</Link>
+            <Link className={`nav-subitem${currentPage === "inventory" ? " active" : ""}`} href="/erp/voorraad" aria-current={currentPage === "inventory" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Voorraad</Link>
+            <Link className={`nav-subitem${currentPage === "inventory-history" ? " active" : ""}`} href="/erp/voorraad/mutaties" aria-current={currentPage === "inventory-history" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Mutaties</Link>
+            <Link className={`nav-subitem${currentPage === "inventory-new" ? " active" : ""}`} href="/erp/voorraad/nieuw" aria-current={currentPage === "inventory-new" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Nieuw artikel</Link>
+            <Link className={`nav-subitem${currentPage === "inventory-trends" ? " active" : ""}`} href="/erp/voorraad/trends" aria-current={currentPage === "inventory-trends" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Trends & Inzichten</Link>
           </div>
         </div>
         <div className="sidebar-label sidebar-section-label">BEDRIJFSVOERING</div>
@@ -114,18 +129,41 @@ export default function BusinessSidebar({
             href="/dashboard#modules"
             key={item.label}
             title={item.label}
+            onClick={(event) => {
+              if (!collapsed) return;
+              event.preventDefault();
+              setCollapsed(false);
+            }}
           >
             <SidebarIcon name={item.icon} /><span>{item.label}</span><span className="coming-soon">In opbouw</span>
           </a>
         ))}
-        <a className="nav-item nav-coming-soon" href="/dashboard#eerste-stappen" title="Leercentrum">
+        <a
+          className="nav-item nav-coming-soon"
+          href="/dashboard#eerste-stappen"
+          title="Leercentrum"
+          onClick={(event) => {
+            if (!collapsed) return;
+            event.preventDefault();
+            setCollapsed(false);
+          }}
+        >
           <SidebarIcon name="book" /><span>Leercentrum</span><span className="coming-soon">In opbouw</span>
         </a>
       </nav>
       <div className="sidebar-bottom">
         <div className="sidebar-label" id="beheer">BEHEER</div>
         {showSettings ? (
-          <a className="nav-item nav-coming-soon" href="#modules" title="Instellingen">
+          <a
+            className="nav-item nav-coming-soon"
+            href="#modules"
+            title="Instellingen"
+            onClick={(event) => {
+              if (!collapsed) return;
+              event.preventDefault();
+              setCollapsed(false);
+            }}
+          >
             <SidebarIcon name="settings" /><span>Instellingen</span><span className="coming-soon">In opbouw</span>
           </a>
         ) : null}

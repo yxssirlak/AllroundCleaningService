@@ -15,7 +15,7 @@ function ToolIcon({ name }: { name: "search" | "bell" | "settings" }) {
   const iconPaths = {
     search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
     bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
-    settings: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" /></>,
+    settings: <><path d="M4 7h9m4 0h3M4 17h3m4 0h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
   };
 
   return (
@@ -86,8 +86,8 @@ export default function BusinessTopbarTools({ accountName }: { accountName: stri
           <p>Meldingen verschijnen hier zodra de onderdelen zijn gekoppeld.</p>
         </div>
       </details>
-      <details className="notification-menu">
-        <summary className="notification-button" aria-label="Instellingen">
+      <details className="notification-menu settings-menu">
+        <summary className="notification-button settings-button" aria-label="Instellingen">
           <ToolIcon name="settings" />
         </summary>
         <div className="notification-popover">
