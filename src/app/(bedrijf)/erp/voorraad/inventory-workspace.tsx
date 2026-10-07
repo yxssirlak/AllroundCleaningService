@@ -787,7 +787,12 @@ export default function InventoryWorkspace({ email }: { email: string }) {
                         <td><span className="table-product"><span className="table-product-icon"><InventoryIcon name="box" size={16} /></span><strong>{product.name}</strong></span></td>
                         <td><span className="table-code">{product.sku ?? "—"}</span><span className="table-barcode">{product.barcode ?? "Geen barcode"}</span></td>
                         <td>{product.location ?? "Niet toegewezen"}</td>
-                        <td><strong className="table-stock">{product.stock_quantity.toLocaleString("nl-NL")} <span>{product.unit}</span></strong></td>
+                        <td>
+                          <strong className="table-stock">
+                            <span className="stock-value-number">{product.stock_quantity.toLocaleString("nl-NL")}</span>
+                            <span className="stock-value-unit">{product.unit}</span>
+                          </strong>
+                        </td>
                         <td><span className={`product-status ${isLow ? "product-status-low" : "product-status-ok"}`}>{isLow ? <><span />Bijbestellen</> : "Op voorraad"}</span></td>
                         <td><button className="table-action" type="button" onClick={() => {
                           setSelectedId(product.id);

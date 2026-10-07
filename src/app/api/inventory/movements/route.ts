@@ -11,22 +11,36 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const requestedLimit = Number(searchParams.get("limit") ?? 30);
   const requestedOffset = Number(searchParams.get("offset") ?? 0);
+  const movementType = searchParams.get("type");
+  const productId = searchParams.get("productId");
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
   if (
     !Number.isInteger(requestedLimit) ||
     requestedLimit < 1 ||
     requestedLimit > 100 ||
     !Number.isInteger(requestedOffset) ||
     requestedOffset < 0 ||
-    requestedOffset > 100000
+    requestedOffset > 100000 ||
+    (movementType !== null && movementType !== "in" && movementType !== "out") ||
+    (productId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(productId)) ||
+    (from !== null && (!Number.isFinite(Date.parse(from)) || from.length > 40)) ||
+    (to !== null && (!Number.isFinite(Date.parse(to)) || to.length > 40)) ||
+    (from !== null && to !== null && Date.parse(from) >= Date.parse(to))
   ) {
-    return NextResponse.json({ error: "Ongeldige paginering voor de voorraadgeschiedenis." }, { status: 400 });
+    return NextResponse.json({ error: "Ongeldige filters voor de voorraadgeschiedenis." }, { status: 400 });
   }
 
-  const { data: movements, error } = await auth.supabase
+  let query = auth.supabase
     .from("inventory_movements")
     .select("*")
-    .order("created_at", { ascending: false })
-    .range(requestedOffset, requestedOffset + requestedLimit);
+    .order("created_at", { ascending: false });
+  if (movementType) query = query.eq("movement_type", movementType);
+  if (productId) query = query.eq("product_id", productId);
+  if (from) query = query.gte("created_at", from);
+  if (to) query = query.lt("created_at", to);
+
+  const { data: movements, error } = await query.range(requestedOffset, requestedOffset + requestedLimit);
 
   if (error) {
     console.error("Voorraadmutaties ophalen mislukt:", error.message);

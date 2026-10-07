@@ -4,7 +4,7 @@ import BusinessSidebar from "@/components/business-sidebar";
 import BusinessTopbarTools from "@/components/business-topbar-tools";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import NewInventoryProductForm from "./new-inventory-product-form";
+import InventoryProductManagement from "./inventory-product-management";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -19,7 +19,7 @@ export default async function NewInventoryProductPage({ searchParams }: PageProp
   const { data, error } = await supabase.auth.getClaims();
 
   if (error) {
-    console.error("Nieuwe artikelpagina kon de aanmelding niet controleren:", error.message);
+    console.error("Artikelbeheer kon de aanmelding niet controleren:", error.message);
   }
 
   if (error || !data?.claims?.sub) {
@@ -50,7 +50,7 @@ export default async function NewInventoryProductPage({ searchParams }: PageProp
             <span className="breadcrumb-divider">/</span><span>ERP</span>
             <span className="breadcrumb-divider">/</span>
             <Link href="/erp/voorraad">Voorraad</Link>
-            <span className="breadcrumb-divider">/</span><strong>Nieuw artikel</strong>
+            <span className="breadcrumb-divider">/</span><strong>Artikelen beheren</strong>
           </div>
           <BusinessTopbarTools accountName={email} />
         </header>
@@ -65,12 +65,12 @@ export default async function NewInventoryProductPage({ searchParams }: PageProp
           <section className="welcome-row inventory-welcome inventory-create-welcome">
             <div>
               <div className="eyebrow">ERP · MAGAZIJNBEHEER</div>
-              <h1>Nieuw artikel toevoegen</h1>
-              <p>Registreer de artikelgegevens. Daarna kun je het artikel scannen en voorraad boeken.</p>
+              <h1>Artikelen beheren</h1>
+              <p>Voeg een nieuw artikel toe of verwijder een bestaand artikel uit de actieve voorraadlijst.</p>
             </div>
           </section>
           <section className="panel product-create-panel">
-            <NewInventoryProductForm initialBarcode={barcode} returnPath={returnPath} />
+            <InventoryProductManagement initialBarcode={barcode} returnPath={returnPath} />
           </section>
         </div>
       </main>

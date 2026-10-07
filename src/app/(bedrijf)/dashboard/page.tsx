@@ -156,7 +156,7 @@ export default function BusinessDashboard() {
             <div>
               <div className="eyebrow">ALLES VOOR JE BEDRIJF, OP ÉÉN PLEK</div>
               <h1>Welkom in jouw werkruimte <span className="wave"></span></h1>
-              <p>Een helder overzicht voor de dagelijkse organisatie van Allround Cleaning Service.</p>
+                <p>Intranet Allround Cleaning Service.</p>
             </div>
             <div className="welcome-actions">
               <a className="primary-button" href="#eerste-stappen">
@@ -190,12 +190,11 @@ export default function BusinessDashboard() {
             <article className="status-card">
               <div className="status-card-heading">
                 <span className="status-icon"><Icon name="shield" size={19} /></span>
-                <span className="status-label">DE STATUS VAN JE PORTAAL</span>
+                <span className="status-label">DE STATUS VAN HET PORTAAL</span>
               </div>
               <h2>Een goede basis<br />begint met overzicht.</h2>
               <p>Deze startpagina is klaar. De gegevens voor klanten, planning en facturatie zijn nog niet aangesloten.</p>
               <div className="status-divider" />
-              <div className="status-note"><span className="status-note-dot" /> Je ziet hier geen voorbeeldcijfers of verzonnen klantgegevens.</div>
             </article>
           </section>
 

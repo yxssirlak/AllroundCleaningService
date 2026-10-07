@@ -118,7 +118,7 @@ export default function BusinessSidebar({
           >
             <Link className={`nav-subitem${currentPage === "inventory" ? " active" : ""}`} href="/erp/voorraad" aria-current={currentPage === "inventory" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Voorraad</Link>
             <Link className={`nav-subitem${currentPage === "inventory-history" ? " active" : ""}`} href="/erp/voorraad/mutaties" aria-current={currentPage === "inventory-history" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Mutaties</Link>
-            <Link className={`nav-subitem${currentPage === "inventory-new" ? " active" : ""}`} href="/erp/voorraad/nieuw" aria-current={currentPage === "inventory-new" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Nieuw artikel</Link>
+            <Link className={`nav-subitem${currentPage === "inventory-new" ? " active" : ""}`} href="/erp/voorraad/nieuw" aria-current={currentPage === "inventory-new" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Artikelen beheren</Link>
             <Link className={`nav-subitem${currentPage === "inventory-trends" ? " active" : ""}`} href="/erp/voorraad/trends" aria-current={currentPage === "inventory-trends" ? "page" : undefined} onClick={() => setCollapsedInventoryOpen(false)}>Trends & Inzichten</Link>
           </div>
         </div>
